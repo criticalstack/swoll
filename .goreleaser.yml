@@ -1,0 +1,66 @@
+before:
+  hooks:
+  # Ensure that any go.mod modifications due to linters, go generate, etc are
+  # removed.
+  - go mod tidy
+  # Using Go modules intrinsically causes modifications to these files that are
+  # unfortunately unavoidable. Newer patch versions available to the CI will
+  # satisfy the same module requirements and cause additions to go.sum.
+  - git checkout -- go.sum
+  - git checkout -- hack/tools/go.sum
+builds:
+- id: swoll
+  env:
+  - CGO_ENABLED=1
+  - GO111MODULE=on
+  main: ./main.go
+  binary: swoll
+  goos:
+    - linux
+  goarch:
+    - amd64
+  gcflags:
+    - all=-trimpath={{.Env.GOPATH}}
+  asmflags:
+    - all=-trimpath={{.Env.GOPATH}}
+  flags:
+    - -a
+    - -tags=nobindata,netgo,osusergo
+  ldflags:
+    - -linkmode external
+    - -extldflags '-static'
+    - -s -w
+    - -X "github.com/criticalstack/swoll/cmd.buildTime={{.Date}}"
+    - -X "github.com/criticalstack/swoll/cmd.gitCommit={{.ShortCommit}}"
+    - -X "github.com/criticalstack/swoll/cmd.version={{.Tag}}"
+archives:
+- replacements:
+    darwin: Darwin
+    linux: Linux
+    windows: Windows
+    386: i386
+    amd64: x86_64
+nfpms:
+- file_name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
+  package_name: swoll
+  homepage:  https://github.com/criticalstack/swoll
+  description: Syswall Operations Low Level interface
+  maintainer: criticalstack <dev@criticalstack.com>
+  license: Apache-2.0
+  vendor: criticalstack
+  bindir: "/usr/local/bin"
+  replacements:
+    amd64: x86_64
+  formats:
+  - deb
+  - rpm
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ .Tag }}-next"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+    - '^docs:'
+    - '^test:'

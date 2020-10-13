@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+    name: swoll-probe
+    namespace: syswall
+spec:
+  selector:
+    matchLabels:
+      app: swoll-probe
+  template:
+    metadata:
+      name: swoll-probe
+      labels:
+        app: "swoll-probe"
+        syswall: "false"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9095"
+    spec:
+      hostPID: true
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      tolerations:
+        - effect: NoSchedule
+          operator: Exists
+      containers:
+        - command:
+          - swoll
+          - server
+          - -r
+          - /run/containerd/containerd.sock
+          - --detect-offsets
+          name: swoll-probe
+          image: 'harbor.cstack.co/criticalstack/swoll:latest'
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: /output
+              name: kubeconf
+            - mountPath: /run/containerd/containerd.sock
+              name: containerd
+            - mountPath: /swoll/probe.o
+              name: swoll-probe
+            - mountPath: /sys
+              name: sys
+      volumes:
+        - name: kubeconf
+          hostPath:
+            path: /output
+        - name: sys
+          hostPath:
+            path: /sys
+        - name: containerd
+          hostPath:
+            path: /run/containerd/containerd.sock
+        - name: swoll-probe
+          hostPath:
+            path: /swoll/bpf/probe.o
+

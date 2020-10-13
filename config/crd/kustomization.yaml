@@ -1,0 +1,7 @@
+resources:
+- bases/tools.syswall.criticalstack.com_traces.yaml
+
+patchesStrategicMerge:
+
+configurations:
+- kustomizeconfig.yaml

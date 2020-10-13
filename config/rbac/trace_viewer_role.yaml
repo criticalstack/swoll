@@ -1,0 +1,20 @@
+# permissions for end users to view traces.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: trace-viewer-role
+rules:
+- apiGroups:
+  - tools.syswall.criticalstack.com
+  resources:
+  - traces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - tools.syswall.criticalstack.com
+  resources:
+  - traces/status
+  verbs:
+  - get
