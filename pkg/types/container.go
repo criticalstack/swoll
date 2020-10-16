@@ -10,6 +10,8 @@ type Container struct {
 	Image        string            `json:"image,omitempty"`
 	Namespace    string            `json:"namespace,omitempty"`
 	Labels       map[string]string `json:"labels,omitempty"`
+	Pid          int               `json:"pid,omitempty"`
+	PidNamespace int               `json:"pid-namespace,omitempty"`
 }
 
 func (c *Container) FQDN() string {
