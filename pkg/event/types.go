@@ -1,7 +1,7 @@
 package event
 
 import (
-	"github.com/criticalstack/swoll/pkg/podmon"
+	"github.com/criticalstack/swoll/pkg/types"
 	"github.com/go-redis/redis"
 )
 
@@ -11,13 +11,13 @@ type KernelEvent []byte
 // KernelLostEvent is a raw lost event counter from the kernel, used by kernel event reader
 type KernelLostEvent uint64
 
-// PodmonAddEvent is an event containing information about a container that was
-// added to the k8s cluster.
-type PodmonAddEvent struct{ *podmon.CRIContainer }
+// ContainerAddEvent is an event sourced from the Topology api on
+// container-entry
+type ContainerAddEvent struct{ *types.Container }
 
-// PodmonDelEvent is an event containing information about a container that was
-// deleted from the k8s cluster.
-type PodmonDelEvent struct{ *podmon.CRIContainer }
+// ContainerDelEvent is an event sourced from the Topology api upon
+// container-exit
+type ContainerDelEvent struct{ *types.Container }
 
 // RedisEvent is an event containing a message from a redis query
 type RedisEvent *redis.Message

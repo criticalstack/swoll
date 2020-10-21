@@ -16,7 +16,7 @@ import (
 	"github.com/criticalstack/swoll/pkg/event/reader"
 	"github.com/criticalstack/swoll/pkg/kernel"
 	"github.com/criticalstack/swoll/pkg/kernel/filter"
-	"github.com/criticalstack/swoll/pkg/podmon"
+	"github.com/criticalstack/swoll/pkg/topology"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -34,9 +34,9 @@ type Hub struct {
 	probe *kernel.Probe
 	// the kernel probe filtering api context
 	filter *filter.Filter
-	// the podmon context for this hub used for resolving kernel namespaces to
-	// pods/containers
-	pm *podmon.PodMon
+	// the topology context for this hub which is used for resolving kernel
+	// namespaces to pods/containers
+	topo *topology.Topology
 	sync.Mutex
 }
 
@@ -135,25 +135,25 @@ func (h *Hub) WriteEvent(ev *event.TraceEvent) {
 // find all jobs associated with this message, and publish the event to
 // the streams tied to the jobs.
 func (h *Hub) Run(ctx context.Context) error {
-	// initialize our podmon context in which we use as our Resolver
-	// context for our `TraceEvent` messages.
+	// initialize our kernel reader used to read messages from the kernel.
 	proberdr := reader.NewEventReader(h.probe)
 	//nolint:errcheck
 	go proberdr.Run(ctx)
 
-	pmonrdr := reader.NewEventReader(h.pm)
-	//nolint:errcheck
-	go pmonrdr.Run(ctx)
+	// initialize our topology reader which is used for resolving
+	// kernel-namespaces back to the container/pod it was sourced from.
+	topordr := reader.NewEventReader(h.topo)
+	go topordr.Run(ctx)
 
 	for {
 		select {
-		case <-pmonrdr.Read():
+		case <-topordr.Read():
 			// we keep an active podmon reader available for kernel-namespace to
 			// container resolution
 		case ev := <-proberdr.Read():
 			// read a single event from the kernel, allcoate empty TraceEvent,
 			// initialize the underlying with the podmon resolver
-			msg := new(event.TraceEvent).WithPodMon(h.pm)
+			msg := new(event.TraceEvent).WithTopology(h.topo)
 			if _, err := msg.Ingest(ev); err != nil {
 				continue
 			}
@@ -283,14 +283,14 @@ func NewHub(config *Config) (*Hub, error) {
 		return nil, err
 	}
 
-	pm, err := podmon.NewPodMon(&podmon.Config{
-		AltRoot:      config.AltRoot,
-		CRIEndpoint:  config.CRIEndpoint,
-		K8SEndpoint:  config.K8SEndpoint,
-		K8SNamespace: config.K8SNamespace,
+	kubetopo, err := topology.NewKubernetes(
+		topology.WithKubernetesCRI(config.CRIEndpoint),
+		topology.WithKubernetesConfig(config.K8SEndpoint),
+		topology.WithKubernetesNamespace(config.K8SNamespace),
 		// we use an empty label match here since we pretty dumb and only
 		// use this as our resolver context for incoming messages
-		PodLabelEnable: "syswall!=false"})
+		topology.WithKubernetesLabelSelector("syswall!=false"),
+		topology.WithKubernetesProcRoot(config.AltRoot))
 	if err != nil {
 		return nil, err
 	}
@@ -302,14 +302,14 @@ func NewHub(config *Config) (*Hub, error) {
 		ps:     pubsub.New(),
 		probe:  probe,
 		filter: filter,
-		pm:     pm,
+		topo:   topology.NewTopology(kubetopo),
 	}, nil
 }
 
-// Podmon returns the Hub's current underlying PodMon context
-func (h *Hub) Podmon() *podmon.PodMon {
+// Topology returns this Hub's current underlying topology context
+func (h *Hub) Topology() *topology.Topology {
 	if h != nil {
-		return h.pm
+		return h.topo
 	}
 
 	return nil
