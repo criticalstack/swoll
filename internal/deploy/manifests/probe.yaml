@@ -31,7 +31,7 @@ spec:
           - /run/containerd/containerd.sock
           - --detect-offsets
           name: swoll-probe
-          image: 'harbor.cstack.co/criticalstack/swoll:latest'
+          image: 'harbor.cstack.co/criticalstack/swoll:topology'
           imagePullPolicy: Always
           securityContext:
             privileged: true

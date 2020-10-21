@@ -28,8 +28,8 @@ spec:
         - controller
         - --enable-leader-election
         - --image
-        - harbor.cstack.co/criticalstack/swoll:latest
-        image: harbor.cstack.co/criticalstack/swoll:latest
+        - harbor.cstack.co/criticalstack/swoll:topology
+        image: harbor.cstack.co/criticalstack/swoll:topology
         name: manager
         resources:
           limits:

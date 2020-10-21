@@ -330,7 +330,7 @@ func (k *Kubernetes) Run(ctx context.Context, out chan<- *ObservationEvent) erro
 			if oldpod.Status.Phase != newpod.Status.Phase {
 				if newpod.Status.Phase == kapi.PodRunning {
 					for _, c := range k.containersForPod(ctx, newpod) {
-						fmt.Printf("[info] adding %s.%s.%s\n", c.Name, c.Pod, c.Namespace)
+						log.Printf("[info] adding %s.%s.%s\n", c.Name, c.Pod, c.Namespace)
 
 						out <- &ObservationEvent{EventTypeStart, c}
 					}
