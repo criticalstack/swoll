@@ -1,13 +1,14 @@
 package event
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"syscall"
 
 	"github.com/criticalstack/swoll/pkg/event/call"
-	"github.com/criticalstack/swoll/pkg/podmon"
 	"github.com/criticalstack/swoll/pkg/syscalls"
+	"github.com/criticalstack/swoll/pkg/topology"
 	"github.com/criticalstack/swoll/pkg/types"
 )
 
@@ -32,9 +33,9 @@ type TraceEvent struct {
 	Start        int64             `json:"start"`
 	Finish       int64             `json:"finish"`
 	Argv         interface{}       `json:"args"`
-	// when the podmon context is not nil, it is used
+	// when the topology context is not nil, it is used
 	// to resove container information.
-	pm *podmon.PodMon
+	topo *topology.Topology
 	// Right now the only use for this is to copy the raw arguments
 	// into the JSON version of this structure.
 	raw *RawEvent
@@ -196,15 +197,15 @@ func (ev *TraceEvent) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// WithPodMon sets the internal podmon context to `pm` for "resolving"
+// WithTopology sets the internal topology context to `topo` for "resolving"
 // kernel-namespaces to containers.
-func (ev *TraceEvent) WithPodMon(pm *podmon.PodMon) *TraceEvent {
-	ev.pm = pm
+func (ev *TraceEvent) WithTopology(topo *topology.Topology) *TraceEvent {
+	ev.topo = topo
 	return ev
 }
 
 // Ingest reads an abstract input and outputs it as a fully-parsed TraceEvent.
-// If a podmon context has been set, it will also attempt to resolve the
+// If a topology context has been set, it will also attempt to resolve the
 // kernel-namespace to a pod/container.
 func (ev *TraceEvent) Ingest(data interface{}) (*TraceEvent, error) {
 	var err error
@@ -227,8 +228,8 @@ func (ev *TraceEvent) Ingest(data interface{}) (*TraceEvent, error) {
 
 	var container *types.Container
 
-	if ev.pm != nil {
-		container, _ = ev.pm.Resolve(podmon.ResolverContext(rawEvent))
+	if ev.topo != nil {
+		container, _ = ev.topo.LookupContainer(context.TODO(), rawEvent.PidNamespace())
 	}
 
 	callData, err := call.DecodeSyscall(int(rawEvent.Syscall), rawEvent.Args(), rawEvent.ArgLen())

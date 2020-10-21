@@ -17,8 +17,8 @@ import (
 	"github.com/criticalstack/swoll/internal/pkg/hub"
 	"github.com/criticalstack/swoll/pkg/event"
 	"github.com/criticalstack/swoll/pkg/kernel/metrics"
-	"github.com/criticalstack/swoll/pkg/podmon"
 	"github.com/criticalstack/swoll/pkg/syscalls"
+	"github.com/criticalstack/swoll/pkg/topology"
 	"github.com/criticalstack/swoll/pkg/types"
 	"github.com/go-echarts/go-echarts/charts"
 	"github.com/gorilla/handlers"
@@ -426,7 +426,7 @@ func deleteJobHandler(ctx context.Context, hub *hub.Hub) func(http.ResponseWrite
 // Metrics is a controlling structure for generating the charts from metrics
 type Metrics struct {
 	handle *metrics.Handler
-	pm     *podmon.PodMon
+	topo   *topology.Topology
 }
 
 type metricOrderKey int
@@ -508,7 +508,7 @@ func (w *wordClouds) updateNamespace(in *metrics.Metric) {
 	}
 
 	count := in.Count()
-	ctr, err := w.pm.Resolve(podmon.ResolverContext(in))
+	ctr, err := w.topo.LookupContainer(context.TODO(), in.PidNamespace())
 	if err != nil {
 		return
 	}
@@ -688,7 +688,7 @@ func (m *Metrics) sankey(ns, ordString string) *charts.Sankey {
 	for _, metricdata := range m.handle.QueryAll() {
 		// attempt to "resolve" the raw kernel namespace to kube container in
 		// which it originated.
-		ctr, err := m.pm.Resolve(podmon.ResolverContext(metricdata))
+		ctr, err := m.topo.LookupContainer(context.TODO(), metricdata.PidNamespace())
 		if err != nil {
 			// ignore kernel-namespace -> container resolution errors
 			continue
@@ -811,10 +811,10 @@ func runServer(cmd *cobra.Command, args []string) {
 	if !noMetrics {
 		// Create a new metrics handler based off of our probe's module
 		metricsHdl := metrics.NewHandler(hb.Probe().Module())
-		mhandler := &Metrics{metricsHdl, hb.Podmon()}
+		mhandler := &Metrics{metricsHdl, hb.Topology()}
 		wordcloud := newWordClouds(mhandler)
 
-		prometheus.MustRegister(newPrometheusWorker(metricsHdl, hb.Podmon()))
+		prometheus.MustRegister(newPrometheusWorker(metricsHdl, hb.Topology()))
 		router.Handle("/metrics", promhttp.Handler())
 
 		chartsRouter := router.PathPrefix("/metrics/charts").Subrouter()
