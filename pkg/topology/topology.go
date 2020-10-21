@@ -83,33 +83,12 @@ func (t *Topology) Run(ctx context.Context, cb OnEventCallback) error {
 
 func (t *Topology) LookupContainer(ctx context.Context, pidns int) (*types.Container, error) {
 	t.RLock()
+	defer t.RUnlock()
 
 	if container, ok := t.cache[pidns]; ok {
 		ret := container.Copy()
-		t.RUnlock()
 		return ret, nil
 	}
-
-	// the container for this pidns was not found in our cache, so do a direct
-	// lookup via the observation backend.
-	containers, err := t.observer.Containers(ctx)
-	if err != nil {
-		t.RUnlock()
-		return nil, err
-	}
-
-	for _, c := range containers {
-		if c.PidNamespace == pidns {
-			ret := c.Copy()
-			t.RUnlock()
-			t.Lock()
-			t.cache[pidns] = ret
-			t.Unlock()
-			return ret, nil
-		}
-	}
-
-	t.RUnlock()
 
 	return nil, ErrContainerNotFound
 }

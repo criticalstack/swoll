@@ -9,7 +9,6 @@ import (
 // key-value of a metric entry from the kernel.
 type key struct {
 	pidNs   uint32
-	mntNs   uint32
 	syscall uint32
 	errno   uint16
 	pad     uint16
@@ -35,7 +34,7 @@ type Metric struct {
 type Metrics []Metric
 
 func (k *key) String() string {
-	return fmt.Sprintf("pidns=%v, mntns=%v, sc=%v, errno=%v", k.pidNs, k.mntNs, k.syscall, k.errno)
+	return fmt.Sprintf("pidns=%v, , sc=%v, errno=%v", k.pidNs, k.syscall, k.errno)
 }
 
 func (v *val) String() string {
@@ -50,7 +49,6 @@ func (m Metric) String() string {
 func (k *key) copy() *key {
 	return &key{
 		pidNs:   k.pidNs,
-		mntNs:   k.mntNs,
 		syscall: k.syscall,
 		errno:   k.errno,
 		pad:     k.pad,
@@ -108,14 +106,6 @@ func (m *Metric) PidNS() uint32 {
 	return 0
 }
 
-func (m *Metric) MntNS() uint32 {
-	if m != nil && m.k != nil {
-		return m.k.mntNs
-	}
-
-	return 0
-}
-
 func (m *Metric) Syscall() uint32 {
 	if m != nil && m.k != nil {
 		return m.k.syscall
@@ -136,9 +126,4 @@ func (m *Metric) Errno() uint16 {
 // PidNamespace is for podmon.ResolverContext interface abstraction
 func (m Metric) PidNamespace() int {
 	return int(m.PidNS())
-}
-
-// MntNamespace is for podmon.ResolverContext interface abstraction
-func (m Metric) MntNamespace() int {
-	return int(m.MntNS())
 }

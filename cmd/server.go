@@ -469,6 +469,7 @@ func (m *Metrics) parseOrder(order string) []metricOrderKey {
 }
 
 type wordClouds struct {
+	mu sync.Mutex
 	*Metrics
 	Errno     map[string]interface{} `json:"errno,omitempty"`
 	Class     map[string]interface{} `json:"class,omitempty"`
@@ -548,6 +549,9 @@ func (w *wordClouds) updateMetric(in *metrics.Metric) {
 }
 
 func (w *wordClouds) updateMetrics(in metrics.Metrics) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	for _, m := range in {
 		w.updateMetric(&m)
 	}
@@ -764,7 +768,7 @@ func runServer(cmd *cobra.Command, args []string) {
 	}
 
 	router := mux.NewRouter().StrictSlash(true)
-	handler := handlers.LoggingHandler(os.Stdout, handlers.CompressHandler(router))
+	handler := handlers.LoggingHandler(os.Stdout, router)
 	server := &http.Server{
 		Addr:    laddr,
 		Handler: handler,
