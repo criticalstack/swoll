@@ -29,13 +29,13 @@ func newPrometheusWorker(handler *metrics.Handler, topo *topology.Topology) *pro
 		topo:     topo,
 		syscalls: syscalls,
 		total: prometheus.NewDesc(
-			prometheus.BuildFQName("syswall_node_metrics", "", "syscall_count"),
+			prometheus.BuildFQName("swoll_node_metrics", "", "syscall_count"),
 			"The total count for a given syscall.",
 			labels,
 			nil,
 		),
 		timeSpent: prometheus.NewDesc(
-			prometheus.BuildFQName("syswall_node_metrics", "", "syscall_time"),
+			prometheus.BuildFQName("swoll_node_metrics", "", "syscall_time"),
 			"The time in nanoseconds spent executing a given syscall.",
 			labels,
 			nil,

@@ -16,7 +16,7 @@ import (
 func ExampleTrace() {
 	t1 := &v1alpha1.Trace{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "syswall",
+			Namespace: "swoll",
 		},
 		Spec: v1alpha1.TraceSpec{
 			LabelSelector: metav1.LabelSelector{
@@ -31,7 +31,7 @@ func ExampleTrace() {
 
 	t2 := &v1alpha1.Trace{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "syswall",
+			Namespace: "swoll",
 		},
 		Spec: v1alpha1.TraceSpec{
 			LabelSelector: metav1.LabelSelector{
@@ -46,7 +46,7 @@ func ExampleTrace() {
 
 	t3 := &v1alpha1.Trace{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "syswall",
+			Namespace: "swoll",
 		},
 		Spec: v1alpha1.TraceSpec{
 			LabelSelector: metav1.LabelSelector{

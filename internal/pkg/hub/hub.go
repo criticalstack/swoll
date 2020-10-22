@@ -5,7 +5,6 @@ import (
 	"container/list"
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -67,7 +66,7 @@ func (h *Hub) DeleteTrace(t *v1alpha1.Trace) error {
 
 	jidlist := h.findJobListByID(t.Status.JobID)
 	if jidlist == nil {
-		return fmt.Errorf("job not found")
+		return errors.New("job not found")
 	}
 
 	var next *list.Element
@@ -152,7 +151,7 @@ func (h *Hub) Run(ctx context.Context) error {
 			// container resolution
 		case ev := <-proberdr.Read():
 			// read a single event from the kernel, allcoate empty TraceEvent,
-			// initialize the underlying with the podmon resolver
+			// initialize the underlying with the topology resolver
 			msg := new(event.TraceEvent).WithTopology(h.topo)
 			if _, err := msg.Ingest(ev); err != nil {
 				continue
@@ -179,11 +178,10 @@ func (h *Hub) Run(ctx context.Context) error {
 					j.Value.(*JobContext).WriteEvent(h, msg)
 				}
 			} else {
-				fmt.Printf("no jobs matched for %v/%v", msg.PidNamespace, msg.Syscall)
+				log.Printf("no jobs matched for %v/%v", msg.PidNamespace, msg.Syscall)
 			}
 
 			h.Unlock()
-
 		}
 	}
 
@@ -289,7 +287,7 @@ func NewHub(config *Config) (*Hub, error) {
 		topology.WithKubernetesNamespace(config.K8SNamespace),
 		// we use an empty label match here since we pretty dumb and only
 		// use this as our resolver context for incoming messages
-		topology.WithKubernetesLabelSelector("syswall!=false"),
+		topology.WithKubernetesLabelSelector("swoll!=false"),
 		topology.WithKubernetesProcRoot(config.AltRoot))
 	if err != nil {
 		return nil, err

@@ -31,7 +31,7 @@ type TraceReconciler struct {
 }
 
 // createJobResource creates the kubernetes Job resource which creates
-// a container which runs the "syswall-kube-agent". This tiny service will look for
+// a container which runs the "swoll-kube-agent". This tiny service will look for
 // containers running inside this namespace using a labelselector. When a
 // container is found, it uses the swoll.Client api to create a job and
 // stream it to stdout.
@@ -84,8 +84,8 @@ func (r *TraceReconciler) createJobResource(t *v1alpha1.Trace) (*v1jobs.Job, err
 	return ret, nil
 }
 
-// +kubebuilder:rbac:groups=tools.syswall.criticalstack.com,resources=traces,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=tools.syswall.criticalstack.com,resources=traces/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=tools.swoll.criticalstack.com,resources=traces,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=tools.swoll.criticalstack.com,resources=traces/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=batch,resources=jobs/status,verbs=get
 // +kubebuilder:rbac:groups="",resources=nodes,verbs=get;watch;list
@@ -110,7 +110,7 @@ func (r *TraceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	finalizerName := "syswall.finalizer"
+	finalizerName := "swoll.finalizer"
 
 	if !t.ObjectMeta.DeletionTimestamp.IsZero() {
 		if t.Status.JobID != "" {

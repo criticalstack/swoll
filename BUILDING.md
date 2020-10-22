@@ -65,9 +65,9 @@ kube-system          kube-controller-manager-cinder        1/1     Running   0  
 kube-system          kube-proxy-v7w7l                      1/1     Running   0          23m
 kube-system          kube-scheduler-cinder                 1/1     Running   0          23m
 local-path-storage   local-path-storage-74cd8967f5-v4trm   1/1     Running   0          23m
-syswall              alertmanager-669f74df9f-fcx9g         1/1     Running   0          20m
-syswall              grafana-deployment-54bd77f9f4-jh2cj   1/1     Running   0          20m
-syswall              swoll-probe-ds-hz4hg                  1/1     Running   0          20m
+swoll              alertmanager-669f74df9f-fcx9g         1/1     Running   0          20m
+swoll              grafana-deployment-54bd77f9f4-jh2cj   1/1     Running   0          20m
+swoll              swoll-probe-ds-hz4hg                  1/1     Running   0          20m
 ```
 
 ## Testing goreleaser
@@ -90,8 +90,8 @@ Installing the helm chart from cscr.io:
 
 ```shell
 $ helm repo add criticalstack https://charts.cscr.io/criticalstack
-$ kubectl create namespace syswall
-$ helm install swoll criticalstack/swoll --namespace syswall
+$ kubectl create namespace swoll
+$ helm install swoll criticalstack/swoll --namespace swoll
 ```
 
 ## Testing the CRD
@@ -106,7 +106,7 @@ Create a trace:
 
 ```shell
 $ kubectl apply -f - << EOF
-apiVersion: tools.syswall.criticalstack.com/v1alpha1
+apiVersion: tools.swoll.criticalstack.com/v1alpha1
 kind: Trace
 metadata:
   name: monitor-cilium

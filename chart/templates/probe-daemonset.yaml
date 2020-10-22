@@ -12,7 +12,7 @@ spec:
     metadata:
       labels:
         {{- include "swoll.selectorLabels" . | nindent 8 }}
-        syswall: 'false'
+        swoll: 'false'
         cstack.io/swoll-enabled: "true"
         cstack.io/swoll-port: "9095"
       annotations:

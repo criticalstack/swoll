@@ -212,7 +212,7 @@ $ sudo ./bin/swoll trace    \
     -f status.phase=Running \
     -s execve,openat        \
     -A /proc/1337/root      \
-    -n syswall              \
+    -n swoll              \
     -r '$root/run/containerd/containerd.sock' \
     app=nginx-with-writer
 ```
@@ -232,7 +232,7 @@ cluster, you must supply a valid configuration.
 
 `-r '$root/run/containerd/containerd.sock'` : In order to resolve kernel events to the kubernetes container in which it was sourced, the tool needs to know where the hosts [CRI socket](https://kubernetes.io/blog/2016/12/container-runtime-interface-cri-in-kubernetes/). In this case, it is prefixed with `$root`, so it will take the `-A` (alt-root) option and prepend that to the lookup. In this case, the CRI socket can be found at `/proc/1337/root/run/containerd/containerd.sock`
 
-`-n syswsall` : if this flag is supplied, you will only see traces on hosts in this kubernetes namespace. In this case `syswall` 
+`-n syswsall` : if this flag is supplied, you will only see traces on hosts in this kubernetes namespace. In this case `swoll` 
 
 `app=nginx-with-writer` : only trace hosts/PODS that match this kubernetes [label selector](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/)
 
@@ -251,27 +251,27 @@ The CRD controller for kubernetes allows an administrator to perform trace-jobs 
     a. **Note**: by default, the image used for creating jobs is
     `cinderegg:5000/swoll:latest`, which is the default for cinder. You can
     change this by using `--image` or `-i` with whatever. 
-4. start up a test pod which we will trace for `kubectl apply -n syswall -f https://gist.githubusercontent.com/NathanFrench/386cd8f0623ad227735f883909bc257c/raw/test.yaml` ([link](https:////gist.githubusercontent.com/NathanFrench/386cd8f0623ad227735f883909bc257c/raw/test.yaml)) 
-5. tell kubernetes to run a trace on the test pod: `kubectl apply -n syswall -f https://gist.githubusercontent.com/NathanFrench/386cd8f0623ad227735f883909bc257c/raw/trace.yaml` ([link](https://gist.githubusercontent.com/NathanFrench/386cd8f0623ad227735f883909bc257c/raw/trace.yaml))
-6. type `kubectl get traces -n syswall`
+4. start up a test pod which we will trace for `kubectl apply -n swoll -f https://gist.githubusercontent.com/NathanFrench/386cd8f0623ad227735f883909bc257c/raw/test.yaml` ([link](https:////gist.githubusercontent.com/NathanFrench/386cd8f0623ad227735f883909bc257c/raw/test.yaml)) 
+5. tell kubernetes to run a trace on the test pod: `kubectl apply -n swoll -f https://gist.githubusercontent.com/NathanFrench/386cd8f0623ad227735f883909bc257c/raw/trace.yaml` ([link](https://gist.githubusercontent.com/NathanFrench/386cd8f0623ad227735f883909bc257c/raw/trace.yaml))
+6. type `kubectl get traces -n swoll`
 
 You should see something like the following:
 
 ```
-$ kubectl get traces -n syswall
+$ kubectl get traces -n swoll
 NAME            NAME            JOB                      SYSCALLS                                                      STATE
 monitor-nginx   monitor-nginx   sw-monitor-nginx-xjcpm   [execve accept4 accept socket listen getsockopt setsockopt]   Complete
 ```
 
-7. The job `sw-monitor-nginx-xjcpm` was created, so we can query its logs: `kubectl logs job/sw-monitor-nginx-xjcpm -n syswall -f`
+7. The job `sw-monitor-nginx-xjcpm` was created, so we can query its logs: `kubectl logs job/sw-monitor-nginx-xjcpm -n swoll -f`
 
 You should see something like the following:
 
 ```
-$ kubectl logs job/sw-monitor-nginx-xjcpm -n syswall -f
+$ kubectl logs job/sw-monitor-nginx-xjcpm -n swoll -f
 Endpoint 172.19.0.2:9095 created monitor-nginx
-indexwriter.nginx-provider.syswall: [sh] sys_execve(filename=(const char *)/bin/date, argv[]=(char * const)   ) err=OK ses=1
-indexwriter.nginx-provider.syswall: [sh] sys_execve(filename=(const char *)/bin/sleep, argv[]=(char * const)1  KUBERNETES_PORT=tcp://10.254.0.1:443 ) err=OK ses=1
+indexwriter.nginx-provider.swoll: [sh] sys_execve(filename=(const char *)/bin/date, argv[]=(char * const)   ) err=OK ses=1
+indexwriter.nginx-provider.swoll: [sh] sys_execve(filename=(const char *)/bin/sleep, argv[]=(char * const)1  KUBERNETES_PORT=tcp://10.254.0.1:443 ) err=OK ses=1
 ```
 
 ### What happened?

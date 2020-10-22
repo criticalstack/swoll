@@ -32,7 +32,7 @@ type ObservationEvent struct {
 type Observer interface {
 	Connect(ctx context.Context) error
 	Containers(ctx context.Context) ([]*types.Container, error)
-	Run(ctx context.Context, out chan<- *ObservationEvent) error
+	Run(ctx context.Context, out chan<- *ObservationEvent)
 	Close() error
 }
 
@@ -65,7 +65,7 @@ func (t *Topology) Containers(ctx context.Context) ([]*types.Container, error) {
 	return t.observer.Containers(ctx)
 }
 
-func (t *Topology) Run(ctx context.Context, cb OnEventCallback) error {
+func (t *Topology) Run(ctx context.Context, cb OnEventCallback) {
 	ch := make(chan *ObservationEvent)
 	go t.observer.Run(ctx, ch)
 
@@ -76,7 +76,7 @@ func (t *Topology) Run(ctx context.Context, cb OnEventCallback) error {
 			t.processEvent(ctx, ev, cb)
 			t.Unlock()
 		case <-ctx.Done():
-			return ctx.Err()
+			return
 		}
 	}
 }

@@ -5,7 +5,7 @@ metadata:
   name: trace-viewer-role
 rules:
 - apiGroups:
-  - tools.syswall.criticalstack.com
+  - tools.swoll.criticalstack.com
   resources:
   - traces
   verbs:
@@ -13,7 +13,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - tools.syswall.criticalstack.com
+  - tools.swoll.criticalstack.com
   resources:
   - traces/status
   verbs:

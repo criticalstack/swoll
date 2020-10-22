@@ -272,8 +272,8 @@ func (ep *Endpoint) DeleteTraceJob(ctx context.Context, id string) error {
 
 // ReadTrace will connect to an already-running job, but allows a user to
 // specify which specific parts to view. For example, if a currently-running
-// job "app=nginx" matches the NS "syswall", POD "pod-A" and the container "container-B", then
-// this can be called ReadTrace(ctx, "syswall", "pod-A", "container-B", ....)
+// job "app=nginx" matches the NS "swoll", POD "pod-A" and the container "container-B", then
+// this can be called ReadTrace(ctx, "swoll", "pod-A", "container-B", ....)
 // to obtain a subset of the stream.
 func (ep *Endpoint) ReadTrace(inctx context.Context, ns, pod, container string, ch chan *StreamMessage, done chan bool) error {
 	ctx, cancel := context.WithCancel(inctx)

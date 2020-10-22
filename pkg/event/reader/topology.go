@@ -2,7 +2,6 @@ package reader
 
 import (
 	"context"
-	"errors"
 
 	"github.com/criticalstack/swoll/pkg/event"
 	"github.com/criticalstack/swoll/pkg/topology"
@@ -32,9 +31,6 @@ func (t *TopologyReader) handler(tp topology.EventType, c *types.Container) {
 }
 
 func (t *TopologyReader) Run(ctx context.Context) error {
-	if t == nil {
-		return errors.New("nil context")
-	}
-
-	return t.topo.Run(ctx, t.handler)
+	t.topo.Run(ctx, t.handler)
+	return nil
 }
