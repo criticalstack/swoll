@@ -1,4 +1,4 @@
-apiVersion: tools.syswall.criticalstack.com/v1alpha1
+apiVersion: tools.swoll.criticalstack.com/v1alpha1
 kind: Trace
 metadata:
   name: trace-sample

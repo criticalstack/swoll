@@ -1,4 +1,4 @@
-# Contributing to Syswall / Swoll (c1 internal)
+# Contributing to Swoll
 
 Thanks for checking out this fun project from CapitalOne's Critical-Stack team!
 To encourage an active and open development community, we have put 

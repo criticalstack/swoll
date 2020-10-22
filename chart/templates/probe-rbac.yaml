@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: syswall-pods-reader
+  name: swoll-pods-reader
 rules:
 - apiGroups: [""]
   resources: ["pods"]
@@ -10,11 +10,11 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: syswall-manager-rolebinding
+  name: swoll-manager-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: syswall-pods-reader
+  name: swoll-pods-reader
 subjects:
 - kind: ServiceAccount
   name: {{ include "swoll.serviceAccountName" . }}
@@ -23,7 +23,7 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: syswall-secrets-reader
+  name: swoll-secrets-reader
 rules:
 - apiGroups: [""]
   resources: ["secrets"]
@@ -32,11 +32,11 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: syswall-secrets-rolebinding
+  name: swoll-secrets-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: syswall-secrets-reader
+  name: swoll-secrets-reader
 subjects:
 - kind: ServiceAccount
   name: {{ include "swoll.serviceAccountName" . }}

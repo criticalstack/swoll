@@ -64,7 +64,7 @@ rules:
   verbs:
   - get
 - apiGroups:
-  - tools.syswall.criticalstack.com
+  - tools.swoll.criticalstack.com
   resources:
   - traces
   verbs:
@@ -76,7 +76,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - tools.syswall.criticalstack.com
+  - tools.swoll.criticalstack.com
   resources:
   - traces/status
   verbs:

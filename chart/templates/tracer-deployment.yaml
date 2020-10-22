@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   labels:
     control-plane: controller-manager
-  name: syswall-controller-controller-manager
+  name: swoll-controller-controller-manager
   namespace: {{ .Release.Namespace }}
 spec:
   replicas: 1

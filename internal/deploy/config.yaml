@@ -4,7 +4,7 @@ featureGates:
   LocalRegistry: true
 postCritCommands:
   - |
-    kubectl create namespace syswall
+    kubectl create namespace swoll
     /swoll/bin/swoll selftest -b /swoll/bpf/probe.o -r /run/containerd/containerd.sock -k /etc/kubernetes/admin.conf --fix
 extraMounts:
   - hostPath: internal/bpf

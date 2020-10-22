@@ -124,7 +124,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(syswall_node_metrics_syscall_time{container=~\"$container\", group=~\"$group\", class=~\"$class\", pod=~\"$pod\", namespace=~\"$namespace\", err=\"OK\"}[$ival])/1000000) by (syscall)",
+          "expr": "sum(rate(swoll_node_metrics_syscall_time{container=~\"$container\", group=~\"$group\", class=~\"$class\", pod=~\"$pod\", namespace=~\"$namespace\", err=\"OK\"}[$ival])/1000000) by (syscall)",
           "format": "time_series",
           "instant": false,
           "legendFormat": "{{syscall}}",
@@ -206,7 +206,7 @@
       "reverseYBuckets": false,
       "targets": [
         {
-          "expr": "sum(rate(syswall_node_metrics_syscall_count{container=~\"$container\", pod=~\"$pod\", namespace=~\"$namespace\", class=~\"$class\", group=~\"$group\", err!=\"OK\"}[$ival])) by (err)",
+          "expr": "sum(rate(swoll_node_metrics_syscall_count{container=~\"$container\", pod=~\"$pod\", namespace=~\"$namespace\", class=~\"$class\", group=~\"$group\", err!=\"OK\"}[$ival])) by (err)",
           "format": "time_series",
           "instant": false,
           "intervalFactor": 1,
@@ -310,12 +310,12 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "topk(10,sum(rate(syswall_node_metrics_syscall_count{namespace=~\"$namespace\", pod=~\"$pod\", container=~\"$container\", class=~\"$class\", group=~\"$group\", err=\"OK\"}[$ival])) by (container,pod,namespace))",
+          "expr": "topk(10,sum(rate(swoll_node_metrics_syscall_count{namespace=~\"$namespace\", pod=~\"$pod\", container=~\"$container\", class=~\"$class\", group=~\"$group\", err=\"OK\"}[$ival])) by (container,pod,namespace))",
           "legendFormat": "{{container}}.{{pod}}.{{namespace}}.count",
           "refId": "A"
         },
         {
-          "expr": "topk(10,sum(rate(syswall_node_metrics_syscall_count{namespace=~\"$namespace\", pod=~\"$pod\", container=~\"$container\", class=~\"$class\", group=~\"$group\", err!=\"OK\"}[$ival])) by (container,pod,namespace))",
+          "expr": "topk(10,sum(rate(swoll_node_metrics_syscall_count{namespace=~\"$namespace\", pod=~\"$pod\", container=~\"$container\", class=~\"$class\", group=~\"$group\", err!=\"OK\"}[$ival])) by (container,pod,namespace))",
           "legendFormat": "{{container}}.{{pod}}.{{namespace}}.errors",
           "refId": "B"
         }
@@ -394,7 +394,7 @@
       "reverseYBuckets": false,
       "targets": [
         {
-          "expr": "sum(rate(syswall_node_metrics_syscall_count{namespace=~\"$namespace\", pod=~\"$pod\", container=~\"$container\", err=\"OK\"}[$ival])) by (class)",
+          "expr": "sum(rate(swoll_node_metrics_syscall_count{namespace=~\"$namespace\", pod=~\"$pod\", container=~\"$container\", err=\"OK\"}[$ival])) by (class)",
           "format": "time_series",
           "hide": false,
           "instant": false,
@@ -462,7 +462,7 @@
       "reverseYBuckets": false,
       "targets": [
         {
-          "expr": "sum(rate(syswall_node_metrics_syscall_count{namespace=~\"$namespace\", pod=~\"$pod\", container=~\"$container\", err!=\"OK\"}[$ival])) by (class)",
+          "expr": "sum(rate(swoll_node_metrics_syscall_count{namespace=~\"$namespace\", pod=~\"$pod\", container=~\"$container\", err!=\"OK\"}[$ival])) by (class)",
           "format": "time_series",
           "hide": false,
           "instant": false,
@@ -551,7 +551,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(syswall_node_metrics_syscall_count{container=~\"$container\", pod=~\"$pod\", namespace=~\"$namespace\", err=\"OK\"}[$ival])) by (class)",
+          "expr": "sum(rate(swoll_node_metrics_syscall_count{container=~\"$container\", pod=~\"$pod\", namespace=~\"$namespace\", err=\"OK\"}[$ival])) by (class)",
           "instant": false,
           "legendFormat": "{{class}}.count",
           "refId": "A"
@@ -647,7 +647,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(syswall_node_metrics_syscall_count{container=~\"$container\", pod=~\"$pod\", namespace=~\"$namespace\", err!=\"OK\"}[$ival])) by (class)",
+          "expr": "sum(rate(swoll_node_metrics_syscall_count{container=~\"$container\", pod=~\"$pod\", namespace=~\"$namespace\", err!=\"OK\"}[$ival])) by (class)",
           "instant": false,
           "legendFormat": "{{class}}",
           "refId": "B"
@@ -726,7 +726,7 @@
       "reverseYBuckets": false,
       "targets": [
         {
-          "expr": "sum(rate(syswall_node_metrics_syscall_count{container=~\"$container\",  pod=~\"$pod\", namespace=~\"$namespace\",  class=\"$class\", err=\"OK\"}[$ival])) by (group)",
+          "expr": "sum(rate(swoll_node_metrics_syscall_count{container=~\"$container\",  pod=~\"$pod\", namespace=~\"$namespace\",  class=\"$class\", err=\"OK\"}[$ival])) by (group)",
           "intervalFactor": 4,
           "legendFormat": "{{group}}",
           "refId": "A"
@@ -789,7 +789,7 @@
       "reverseYBuckets": false,
       "targets": [
         {
-          "expr": "sum(rate(syswall_node_metrics_syscall_count{container=~\"$container\",  pod=~\"$pod\", namespace=~\"$namespace\",  class=\"$class\", err!=\"OK\"}[$ival])) by (group)",
+          "expr": "sum(rate(swoll_node_metrics_syscall_count{container=~\"$container\",  pod=~\"$pod\", namespace=~\"$namespace\",  class=\"$class\", err!=\"OK\"}[$ival])) by (group)",
           "intervalFactor": 4,
           "legendFormat": "{{group}}",
           "refId": "A"
@@ -869,7 +869,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(syswall_node_metrics_syscall_count{container=~\"$container\",  pod=~\"$pod\", namespace=~\"$namespace\",  class=\"$class\", err=\"OK\"}[$ival])) by (group)",
+          "expr": "sum(rate(swoll_node_metrics_syscall_count{container=~\"$container\",  pod=~\"$pod\", namespace=~\"$namespace\",  class=\"$class\", err=\"OK\"}[$ival])) by (group)",
           "legendFormat": "{{group}}",
           "refId": "A"
         }
@@ -963,7 +963,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(syswall_node_metrics_syscall_count{container=~\"$container\",  pod=~\"$pod\", namespace=~\"$namespace\", class=\"$class\", err!=\"OK\"}[$ival])) by (group)",
+          "expr": "sum(rate(swoll_node_metrics_syscall_count{container=~\"$container\",  pod=~\"$pod\", namespace=~\"$namespace\", class=\"$class\", err!=\"OK\"}[$ival])) by (group)",
           "legendFormat": "{{group}}",
           "refId": "A"
         }
@@ -1043,7 +1043,7 @@
       "reverseYBuckets": false,
       "targets": [
         {
-          "expr": "sum(rate(syswall_node_metrics_syscall_count{container=~\"$container\", class=~\"$class\", pod=~\"$pod\", namespace=~\"$namespace\",  class=\"$class\", group=\"$group\", err=\"OK\"}[$ival])) by (syscall)",
+          "expr": "sum(rate(swoll_node_metrics_syscall_count{container=~\"$container\", class=~\"$class\", pod=~\"$pod\", namespace=~\"$namespace\",  class=\"$class\", group=\"$group\", err=\"OK\"}[$ival])) by (syscall)",
           "format": "time_series",
           "instant": false,
           "intervalFactor": 10,
@@ -1112,7 +1112,7 @@
       "reverseYBuckets": false,
       "targets": [
         {
-          "expr": "sum(rate(syswall_node_metrics_syscall_count{container=~\"$container\", class=~\"$class\", pod=~\"$pod\", namespace=~\"$namespace\",  class=\"$class\", group=\"$group\", err!=\"OK\"}[$ival])) by (syscall,err)",
+          "expr": "sum(rate(swoll_node_metrics_syscall_count{container=~\"$container\", class=~\"$class\", pod=~\"$pod\", namespace=~\"$namespace\",  class=\"$class\", group=\"$group\", err!=\"OK\"}[$ival])) by (syscall,err)",
           "format": "time_series",
           "instant": false,
           "intervalFactor": 10,
@@ -1195,7 +1195,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(syswall_node_metrics_syscall_count{container=~\"$container\", class=~\"$class\", pod=~\"$pod\", namespace=~\"$namespace\",  class=\"$class\", group=\"$group\", err=\"OK\"}[$ival])) by (syscall)",
+          "expr": "sum(rate(swoll_node_metrics_syscall_count{container=~\"$container\", class=~\"$class\", pod=~\"$pod\", namespace=~\"$namespace\",  class=\"$class\", group=\"$group\", err=\"OK\"}[$ival])) by (syscall)",
           "legendFormat": "{{syscall}}",
           "refId": "A"
         }
@@ -1289,7 +1289,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(syswall_node_metrics_syscall_count{container=~\"$container\",  pod=~\"$pod\", namespace=~\"$namespace\", class=\"$class\", group=\"$group\", err!=\"OK\"}[$ival])) by (syscall)",
+          "expr": "sum(rate(swoll_node_metrics_syscall_count{container=~\"$container\",  pod=~\"$pod\", namespace=~\"$namespace\", class=\"$class\", group=\"$group\", err!=\"OK\"}[$ival])) by (syscall)",
           "legendFormat": "{{syscall}}",
           "refId": "A"
         }
@@ -1381,7 +1381,7 @@
           "reverseYBuckets": false,
           "targets": [
             {
-              "expr": "topk(15, sum(rate(syswall_node_metrics_syscall_count{container=~\"$container\", pod=~\"$pod\", namespace=~\"$namespace\"}[$ival])) by (syscall))",
+              "expr": "topk(15, sum(rate(swoll_node_metrics_syscall_count{container=~\"$container\", pod=~\"$pod\", namespace=~\"$namespace\"}[$ival])) by (syscall))",
               "format": "time_series",
               "instant": false,
               "intervalFactor": 5,
@@ -1451,7 +1451,7 @@
           "reverseYBuckets": false,
           "targets": [
             {
-              "expr": "topk(15, avg(rate(syswall_node_metrics_syscall_count{container=~\"$container\", pod=~\"$pod\", namespace=~\"$namespace\", err!=\"OK\"}[$ival])) by (syscall))",
+              "expr": "topk(15, avg(rate(swoll_node_metrics_syscall_count{container=~\"$container\", pod=~\"$pod\", namespace=~\"$namespace\", err!=\"OK\"}[$ival])) by (syscall))",
               "format": "time_series",
               "instant": false,
               "intervalFactor": 5,
@@ -1545,7 +1545,7 @@
           },
           "targets": [
             {
-              "expr": "sum(rate(syswall_node_metrics_syscall_count{container=~\"$container\", pod=~\"$pod\", namespace=~\"$namespace\"}[$ival])) by (container)",
+              "expr": "sum(rate(swoll_node_metrics_syscall_count{container=~\"$container\", pod=~\"$pod\", namespace=~\"$namespace\"}[$ival])) by (container)",
               "instant": false,
               "intervalFactor": 4,
               "legendFormat": "{{container}}",
@@ -1622,7 +1622,7 @@
           },
           "targets": [
             {
-              "expr": "sum(rate(syswall_node_metrics_syscall_count{container=~\"$container\", pod=~\"$pod\", namespace=~\"$namespace\", err!=\"OK\"}[$ival])) by (container)",
+              "expr": "sum(rate(swoll_node_metrics_syscall_count{container=~\"$container\", pod=~\"$pod\", namespace=~\"$namespace\", err!=\"OK\"}[$ival])) by (container)",
               "instant": false,
               "intervalFactor": 4,
               "legendFormat": "{{container}}",
@@ -1701,7 +1701,7 @@
           },
           "targets": [
             {
-              "expr": "sum(rate(syswall_node_metrics_syscall_count{container=~\"$container\", pod=~\"$pod\", namespace=~\"$namespace\"}[$ival])) by (container)",
+              "expr": "sum(rate(swoll_node_metrics_syscall_count{container=~\"$container\", pod=~\"$pod\", namespace=~\"$namespace\"}[$ival])) by (container)",
               "instant": false,
               "intervalFactor": 4,
               "legendFormat": "{{container}}",
@@ -1780,7 +1780,7 @@
           },
           "targets": [
             {
-              "expr": "sum(rate(syswall_node_metrics_syscall_count{container=~\"$container\", pod=~\"$pod\", namespace=~\"$namespace\", err!=\"OK\"}[$ival])) by (container)",
+              "expr": "sum(rate(swoll_node_metrics_syscall_count{container=~\"$container\", pod=~\"$pod\", namespace=~\"$namespace\", err!=\"OK\"}[$ival])) by (container)",
               "instant": false,
               "intervalFactor": 4,
               "legendFormat": "{{container}}",
@@ -1859,7 +1859,7 @@
           },
           "targets": [
             {
-              "expr": "sum(rate(syswall_node_metrics_syscall_count{container=~\"$container\", pod=~\"$pod\", namespace=~\"$namespace\"}[$ival])) by (container)",
+              "expr": "sum(rate(swoll_node_metrics_syscall_count{container=~\"$container\", pod=~\"$pod\", namespace=~\"$namespace\"}[$ival])) by (container)",
               "instant": false,
               "intervalFactor": 4,
               "legendFormat": "{{container}}",
@@ -1938,7 +1938,7 @@
           },
           "targets": [
             {
-              "expr": "sum(rate(syswall_node_metrics_syscall_count{container=~\"$container\", pod=~\"$pod\", namespace=~\"$namespace\", err!=\"OK\"}[$ival])) by (container)",
+              "expr": "sum(rate(swoll_node_metrics_syscall_count{container=~\"$container\", pod=~\"$pod\", namespace=~\"$namespace\", err!=\"OK\"}[$ival])) by (container)",
               "instant": false,
               "intervalFactor": 4,
               "legendFormat": "{{container}}",
@@ -2011,13 +2011,13 @@
           "scopedVars": {
             "namespace": {
               "selected": false,
-              "text": "syswall",
-              "value": "syswall"
+              "text": "swoll",
+              "value": "swoll"
             }
           },
           "targets": [
             {
-              "expr": "sum(rate(syswall_node_metrics_syscall_count{container=~\"$container\", pod=~\"$pod\", namespace=~\"$namespace\"}[$ival])) by (container)",
+              "expr": "sum(rate(swoll_node_metrics_syscall_count{container=~\"$container\", pod=~\"$pod\", namespace=~\"$namespace\"}[$ival])) by (container)",
               "instant": false,
               "intervalFactor": 4,
               "legendFormat": "{{container}}",
@@ -2090,13 +2090,13 @@
           "scopedVars": {
             "namespace": {
               "selected": false,
-              "text": "syswall",
-              "value": "syswall"
+              "text": "swoll",
+              "value": "swoll"
             }
           },
           "targets": [
             {
-              "expr": "sum(rate(syswall_node_metrics_syscall_count{container=~\"$container\", pod=~\"$pod\", namespace=~\"$namespace\", err!=\"OK\"}[$ival])) by (container)",
+              "expr": "sum(rate(swoll_node_metrics_syscall_count{container=~\"$container\", pod=~\"$pod\", namespace=~\"$namespace\", err!=\"OK\"}[$ival])) by (container)",
               "instant": false,
               "intervalFactor": 4,
               "legendFormat": "{{container}}",
@@ -2144,7 +2144,7 @@
         "allValue": "",
         "current": {},
         "datasource": "${DS_PROMETHEUS}",
-        "definition": "query_result(count by (namespace) (syswall_node_metrics_syscall_count))",
+        "definition": "query_result(count by (namespace) (swoll_node_metrics_syscall_count))",
         "hide": 0,
         "includeAll": true,
         "index": -1,
@@ -2152,7 +2152,7 @@
         "multi": false,
         "name": "namespace",
         "options": [],
-        "query": "query_result(count by (namespace) (syswall_node_metrics_syscall_count))",
+        "query": "query_result(count by (namespace) (swoll_node_metrics_syscall_count))",
         "refresh": 1,
         "regex": "/namespace=\\\"(.*?)\\\"/",
         "skipUrlSync": false,
@@ -2167,7 +2167,7 @@
         "allValue": "",
         "current": {},
         "datasource": "${DS_PROMETHEUS}",
-        "definition": "query_result(count by (pod) (syswall_node_metrics_syscall_count{namespace=~\"$namespace\"}))",
+        "definition": "query_result(count by (pod) (swoll_node_metrics_syscall_count{namespace=~\"$namespace\"}))",
         "hide": 0,
         "includeAll": true,
         "index": -1,
@@ -2175,7 +2175,7 @@
         "multi": false,
         "name": "pod",
         "options": [],
-        "query": "query_result(count by (pod) (syswall_node_metrics_syscall_count{namespace=~\"$namespace\"}))",
+        "query": "query_result(count by (pod) (swoll_node_metrics_syscall_count{namespace=~\"$namespace\"}))",
         "refresh": 1,
         "regex": "/pod=\\\"(.*?)\\\"/",
         "skipUrlSync": false,
@@ -2190,7 +2190,7 @@
         "allValue": null,
         "current": {},
         "datasource": "${DS_PROMETHEUS}",
-        "definition": "query_result(count by (container) (syswall_node_metrics_syscall_count{namespace=~\"$namespace\", pod=~\"$pod\"}))",
+        "definition": "query_result(count by (container) (swoll_node_metrics_syscall_count{namespace=~\"$namespace\", pod=~\"$pod\"}))",
         "hide": 0,
         "includeAll": true,
         "index": -1,
@@ -2198,7 +2198,7 @@
         "multi": false,
         "name": "container",
         "options": [],
-        "query": "query_result(count by (container) (syswall_node_metrics_syscall_count{namespace=~\"$namespace\", pod=~\"$pod\"}))",
+        "query": "query_result(count by (container) (swoll_node_metrics_syscall_count{namespace=~\"$namespace\", pod=~\"$pod\"}))",
         "refresh": 1,
         "regex": "/container=\\\"(.*?)\\\"/",
         "skipUrlSync": false,
@@ -2213,7 +2213,7 @@
         "allValue": "",
         "current": {},
         "datasource": "${DS_PROMETHEUS}",
-        "definition": "query_result(count by (class) (syswall_node_metrics_syscall_count))",
+        "definition": "query_result(count by (class) (swoll_node_metrics_syscall_count))",
         "hide": 0,
         "includeAll": true,
         "index": -1,
@@ -2221,7 +2221,7 @@
         "multi": true,
         "name": "class",
         "options": [],
-        "query": "query_result(count by (class) (syswall_node_metrics_syscall_count))",
+        "query": "query_result(count by (class) (swoll_node_metrics_syscall_count))",
         "refresh": 1,
         "regex": "/class=\\\"(.*?)\\\"/",
         "skipUrlSync": false,
@@ -2236,7 +2236,7 @@
         "allValue": "",
         "current": {},
         "datasource": "${DS_PROMETHEUS}",
-        "definition": "query_result(count by (group) (syswall_node_metrics_syscall_count{class=~\"$class\"}))",
+        "definition": "query_result(count by (group) (swoll_node_metrics_syscall_count{class=~\"$class\"}))",
         "hide": 0,
         "includeAll": true,
         "index": -1,
@@ -2244,7 +2244,7 @@
         "multi": false,
         "name": "group",
         "options": [],
-        "query": "query_result(count by (group) (syswall_node_metrics_syscall_count{class=~\"$class\"}))",
+        "query": "query_result(count by (group) (swoll_node_metrics_syscall_count{class=~\"$class\"}))",
         "refresh": 1,
         "regex": "/group=\\\"(.*?)\\\"/",
         "skipUrlSync": false,
@@ -2316,7 +2316,7 @@
     ]
   },
   "timezone": "",
-  "title": "syswalldash",
+  "title": "swolldash",
   "uid": "8-0auJYWz",
   "variables": {
     "list": []

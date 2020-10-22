@@ -44,7 +44,7 @@ nfpms:
 - file_name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
   package_name: swoll
   homepage:  https://github.com/criticalstack/swoll
-  description: Syswall Operations Low Level interface
+  description: Swoll Engine 
   maintainer: criticalstack <dev@criticalstack.com>
   license: Apache-2.0
   vendor: criticalstack

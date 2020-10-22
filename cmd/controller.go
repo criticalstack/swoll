@@ -31,7 +31,7 @@ var (
 
 var cmdController = &cobra.Command{
 	Use:   "controller",
-	Short: "start the syswall k8s CRD controller",
+	Short: "start the swoll k8s CRD controller",
 	Run: func(cmd *cobra.Command, args []string) {
 		var config *kclient.Config
 		var err error
@@ -84,7 +84,7 @@ var cmdController = &cobra.Command{
 			MetricsBindAddress: metricsAddr,
 			Port:               9443,
 			LeaderElection:     electionOn,
-			LeaderElectionID:   "d4e4c6da.syswall.criticalstack.com",
+			LeaderElectionID:   "d4e4c6da.swoll.criticalstack.com",
 		})
 		if err != nil {
 			setupLog.Error(err, "unable to start manager")
@@ -129,7 +129,7 @@ func init() {
 
 	cmdController.Flags().StringP("kubeconfig", "k", os.Getenv("KUBECONFIG"), "kube config file")
 	cmdController.Flags().StringP("metrics-addr", "m", ":8080", "The address the metric endpoint binds to.")
-	cmdController.Flags().StringP("image", "i", defaultImageName, "syswall-kube-agent image path")
+	cmdController.Flags().StringP("image", "i", defaultImageName, "swoll docker-image path")
 	cmdController.Flags().StringSliceP("endpoints", "e", []string{}, "comma-separated list of probe endpoints")
 	cmdController.Flags().Bool("enable-leader-election", false,
 		"Enable leader election for controller manager. "+

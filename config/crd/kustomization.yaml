@@ -1,5 +1,5 @@
 resources:
-- bases/tools.syswall.criticalstack.com_traces.yaml
+- bases/tools.swoll.criticalstack.com_traces.yaml
 
 patchesStrategicMerge:
 

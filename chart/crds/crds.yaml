@@ -4,7 +4,7 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.5
   creationTimestamp: null
-  name: traces.tools.syswall.criticalstack.com
+  name: traces.tools.swoll.criticalstack.com
 spec:
   additionalPrinterColumns:
   - JSONPath: .metadata.name
@@ -19,7 +19,7 @@ spec:
   - JSONPath: .status.state
     name: State
     type: string
-  group: tools.syswall.criticalstack.com
+  group: tools.swoll.criticalstack.com
   names:
     kind: Trace
     listKind: TraceList

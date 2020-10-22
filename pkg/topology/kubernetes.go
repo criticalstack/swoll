@@ -332,10 +332,11 @@ func (k *Kubernetes) containersForPod(ctx context.Context, pod *kapi.Pod) []*typ
 // Run connects to kube and watches for POD changes. When changes are seen,
 // attempt to match the changes with the underlying CRI containers (to find the
 // running PID of the container, and the underlying PID namespace).
-func (k *Kubernetes) Run(ctx context.Context, out chan<- *ObservationEvent) error {
+func (k *Kubernetes) Run(ctx context.Context, out chan<- *ObservationEvent) {
 	if k.kubeWatcher == nil {
 		if err := k.connectKube(ctx); err != nil {
-			return err
+			log.Printf("[warning] error connecting to kubernetes: %v", err)
+			return
 		}
 	}
 
@@ -381,5 +382,5 @@ func (k *Kubernetes) Run(ctx context.Context, out chan<- *ObservationEvent) erro
 
 	informer.Run(ctx.Done())
 
-	return nil
+	return
 }
