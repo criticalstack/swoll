@@ -31,18 +31,21 @@ import (
 
 type KubernetesOption func(*Kubernetes) error
 
+// Kubernetes contains all the working parts to facilitate a Observer
+// for kubernetes operation.
 type Kubernetes struct {
-	criSocket     string
-	kubeConfig    string
-	namespace     string
-	labelSelector string
-	fieldSelector string
-	procRoot      string
-	criClient     *grpc.ClientConn
-	kubeClient    *kubernetes.Clientset
-	kubeWatcher   *kcache.ListWatch
+	criSocket     string                // fully-qualified path to a CRI socket endpoint
+	kubeConfig    string                // if running out-of-cluster, the kubeconfig file
+	namespace     string                // only monitor events within a specific namespace
+	labelSelector string                // labels to match on
+	fieldSelector string                // fields to match on
+	procRoot      string                // if your /proc is outside of root, (as in /mnt/other/proc)
+	criClient     *grpc.ClientConn      // the CRI GRPC connection
+	kubeClient    *kubernetes.Clientset // the kube rpc connection
+	kubeWatcher   *kcache.ListWatch     // the listwatch client for monitoring pods
 }
 
+// WithKubernetesNamespace sets the namespace configuration option
 func WithKubernetesNamespace(namespace string) KubernetesOption {
 	return func(k *Kubernetes) error {
 		k.namespace = namespace
@@ -50,6 +53,7 @@ func WithKubernetesNamespace(namespace string) KubernetesOption {
 	}
 }
 
+// WithKubernetesProcRoot sets the root-directory to the "/proc" directory
 func WithKubernetesProcRoot(path string) KubernetesOption {
 	return func(k *Kubernetes) error {
 		k.procRoot = path
@@ -57,6 +61,7 @@ func WithKubernetesProcRoot(path string) KubernetesOption {
 	}
 }
 
+// WithKubernetesCRI sets the cri file configuration option
 func WithKubernetesCRI(criSocket string) KubernetesOption {
 	return func(k *Kubernetes) error {
 		sinfo, err := os.Stat(criSocket)
@@ -73,6 +78,7 @@ func WithKubernetesCRI(criSocket string) KubernetesOption {
 	}
 }
 
+// WithKubernetesConfig sets the path to the kube configuration file
 func WithKubernetesConfig(kubeConfig string) KubernetesOption {
 	return func(k *Kubernetes) error {
 		k.kubeConfig = kubeConfig
@@ -80,12 +86,15 @@ func WithKubernetesConfig(kubeConfig string) KubernetesOption {
 	}
 }
 
+// WithKubernetesLabelSelector sets the labelselector match configuration option
 func WithKubernetesLabelSelector(l string) KubernetesOption {
 	return func(k *Kubernetes) error {
 		k.labelSelector = l
 		return nil
 	}
 }
+
+// WithKubernetesFieldSelector sets the fieldselector match configuration option
 func WithKubernetesFieldSelector(f string) KubernetesOption {
 	return func(k *Kubernetes) error {
 		k.fieldSelector = f
@@ -93,6 +102,7 @@ func WithKubernetesFieldSelector(f string) KubernetesOption {
 	}
 }
 
+// NewKubernetes creates a Observer object for watching kubernetes changes
 func NewKubernetes(opts ...KubernetesOption) (*Kubernetes, error) {
 	ret := &Kubernetes{namespace: kapi.NamespaceAll}
 
@@ -160,6 +170,8 @@ func (k *Kubernetes) connectKube(ctx context.Context) error {
 
 }
 
+// Connect will do all the things to create client connects to both the
+// kubernetes api, and the CRI grpc endpoint.
 func (k *Kubernetes) Connect(ctx context.Context) error {
 	if err := k.connectCRI(ctx); err != nil {
 		return errors.Wrapf(err, "failed to connect to CRI endpoint '%s'", k.criSocket)
@@ -172,6 +184,9 @@ func (k *Kubernetes) Connect(ctx context.Context) error {
 	return nil
 }
 
+// getContainerPid takes a container-id and attempts to find the PID of the
+// container using CRI from some of the meta-data found within the info section
+// of the response.
 func (k *Kubernetes) getContainerPid(ctx context.Context, id string) (int, error) {
 	rpc := pb.NewRuntimeServiceClient(k.criClient)
 	request := &pb.ContainerStatusRequest{ContainerId: id, Verbose: true}
@@ -200,6 +215,8 @@ type matchPod struct {
 	podNamespace string
 }
 
+// criContainers returns all running containers found in the CRI and attempts to
+// resolve the pod, kube-namespace, and kernel-namespace.
 func (k *Kubernetes) criContainers(ctx context.Context, match ...*matchPod) ([]*types.Container, error) {
 	if k.criClient == nil {
 		if err := k.connectCRI(ctx); err != nil {
@@ -284,10 +301,12 @@ func (k *Kubernetes) criContainers(ctx context.Context, match ...*matchPod) ([]*
 	return ret, nil
 }
 
+// Containers returns an array of running containers inside kubernetes.
 func (k *Kubernetes) Containers(ctx context.Context) ([]*types.Container, error) {
 	return k.criContainers(ctx)
 }
 
+// Close frees up all the running resources of this Kubernetes observer
 func (k *Kubernetes) Close() error {
 	if k != nil {
 		if k.criClient != nil {
@@ -300,6 +319,7 @@ func (k *Kubernetes) Close() error {
 	return nil
 }
 
+// containersForPod returns a list of containers that match a pod.
 func (k *Kubernetes) containersForPod(ctx context.Context, pod *kapi.Pod) []*types.Container {
 	criContainers, err := k.criContainers(ctx, &matchPod{pod.Name, pod.Namespace})
 	if err != nil {
@@ -309,6 +329,9 @@ func (k *Kubernetes) containersForPod(ctx context.Context, pod *kapi.Pod) []*typ
 	return criContainers
 }
 
+// Run connects to kube and watches for POD changes. When changes are seen,
+// attempt to match the changes with the underlying CRI containers (to find the
+// running PID of the container, and the underlying PID namespace).
 func (k *Kubernetes) Run(ctx context.Context, out chan<- *ObservationEvent) error {
 	if k.kubeWatcher == nil {
 		if err := k.connectKube(ctx); err != nil {
@@ -318,6 +341,8 @@ func (k *Kubernetes) Run(ctx context.Context, out chan<- *ObservationEvent) erro
 
 	_, informer := kcache.NewInformer(k.kubeWatcher, &kapi.Pod{}, 0, kcache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(obj interface{}, newobj interface{}) {
+			// We treat an update in two separate messages if the old status
+			// does not equal the new status, and the new status is `Running`.
 			oldpod := obj.(*kapi.Pod)
 			newpod := newobj.(*kapi.Pod)
 
