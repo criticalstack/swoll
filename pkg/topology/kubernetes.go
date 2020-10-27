@@ -381,6 +381,4 @@ func (k *Kubernetes) Run(ctx context.Context, out chan<- *ObservationEvent) {
 	})
 
 	informer.Run(ctx.Done())
-
-	return
 }

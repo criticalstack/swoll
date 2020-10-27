@@ -13,8 +13,6 @@ spec:
       labels:
         {{- include "swoll.selectorLabels" . | nindent 8 }}
         swoll: 'false'
-        cstack.io/swoll-enabled: "true"
-        cstack.io/swoll-port: "9095"
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9095"
@@ -39,48 +37,18 @@ spec:
           - swoll
           - server
           - --cri=/run/containerd/containerd.sock
-          - --bpf=/swoll/probe.o
-          #ports:
-            #- name: http
-              #containerPort: 80
-              #protocol: TCP
-          #livenessProbe:
-            #httpGet:
-              #path: /
-              #port: http
-          #readinessProbe:
-            #httpGet:
-              #path: /
-              #port: http
+          - --detect-offsets
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
-            - mountPath: /output
-              name: kubeconf
             - mountPath: /run/containerd/containerd.sock
               name: containerd
-            - mountPath: /etc/swoll/certs
-              name: swoll-certs
-            - mountPath: /swoll/probe.o
-              name: swoll-probe
             - mountPath: /sys
               name: sys
       volumes:
-        - name: kubeconf
-          hostPath:
-            path: /output
-        - name: sys
-          hostPath:
-            path: /sys
         - name: containerd
           hostPath:
             path: /run/containerd/containerd.sock
-        - name: swoll-certs
-          secret:
-            secretName: swoll-certs
-        - name: swoll-probe
-          hostPath:
-            path: {{ .Values.probeFile }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

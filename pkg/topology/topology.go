@@ -2,6 +2,7 @@ package topology
 
 import (
 	"context"
+	"log"
 	"sync"
 
 	"github.com/criticalstack/swoll/pkg/types"
@@ -73,7 +74,10 @@ func (t *Topology) Run(ctx context.Context, cb OnEventCallback) {
 		select {
 		case ev := <-ch:
 			t.Lock()
-			t.processEvent(ctx, ev, cb)
+			if err := t.processEvent(ctx, ev, cb); err != nil {
+				log.Printf("[warning] error processing event: %v", err)
+			}
+
 			t.Unlock()
 		case <-ctx.Done():
 			return

@@ -15,6 +15,7 @@ import (
 	"github.com/criticalstack/swoll/pkg/event/reader"
 	"github.com/criticalstack/swoll/pkg/kernel"
 	"github.com/criticalstack/swoll/pkg/kernel/filter"
+	"github.com/criticalstack/swoll/pkg/syscalls"
 	"github.com/criticalstack/swoll/pkg/topology"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -80,13 +81,13 @@ func (h *Hub) DeleteTrace(t *v1alpha1.Trace) error {
 		jnslist := h.findJobList(ctx.ns, ctx.nr)
 
 		// delete this element from the namespace map
-		log.Printf("Removing %s/%d from namespace-list\n", ctx.JobID(), ctx.nr)
+		log.Printf("Removing %s/%s from namespace-list\n", ctx.JobID(), syscalls.Lookup(ctx.nr))
 		jnslist.Remove(ctx.nselem)
 
 		// if our `nsmap` is now empty, we can safely remove
 		// this from the running kernel filter.
 		if jnslist.Len() == 0 {
-			log.Printf("Bucket for %s/%d empty, dumping job bucket.\n", ctx.JobID(), ctx.nr)
+			log.Printf("Bucket for %s/%s empty, dumping job bucket.\n", ctx.JobID(), syscalls.Lookup(ctx.nr))
 
 			if err := h.filter.RemoveSyscall(ctx.nr, ctx.ns); err != nil {
 				log.Printf("[warn] Failed to remove syscall from kernel-filter: %v", err)
@@ -142,6 +143,7 @@ func (h *Hub) Run(ctx context.Context) error {
 	// initialize our topology reader which is used for resolving
 	// kernel-namespaces back to the container/pod it was sourced from.
 	topordr := reader.NewEventReader(h.topo)
+	// nolint:errcheck
 	go topordr.Run(ctx)
 
 	for {
@@ -252,7 +254,7 @@ func (h *Hub) PushJob(job *Job, ns, nr int) {
 
 // NewHub creates and initializes a Hub context for reading and writing data to
 // the kernel probe and routing them to the clients that care.
-func NewHub(config *Config) (*Hub, error) {
+func NewHub(config *Config, observer topology.Observer) (*Hub, error) {
 	if len(config.BPFObject) == 0 {
 		return nil, errors.New("BPF object missing")
 	}
@@ -281,18 +283,6 @@ func NewHub(config *Config) (*Hub, error) {
 		return nil, err
 	}
 
-	kubetopo, err := topology.NewKubernetes(
-		topology.WithKubernetesCRI(config.CRIEndpoint),
-		topology.WithKubernetesConfig(config.K8SEndpoint),
-		topology.WithKubernetesNamespace(config.K8SNamespace),
-		// we use an empty label match here since we pretty dumb and only
-		// use this as our resolver context for incoming messages
-		topology.WithKubernetesLabelSelector("swoll!=false"),
-		topology.WithKubernetesProcRoot(config.AltRoot))
-	if err != nil {
-		return nil, err
-	}
-
 	return &Hub{
 		config: config,
 		nsmap:  make(map[int]map[int]*JobList),
@@ -300,7 +290,7 @@ func NewHub(config *Config) (*Hub, error) {
 		ps:     pubsub.New(),
 		probe:  probe,
 		filter: filter,
-		topo:   topology.NewTopology(kubetopo),
+		topo:   topology.NewTopology(observer),
 	}, nil
 }
 

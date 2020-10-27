@@ -24,6 +24,14 @@ var (
 	gSyscallsCtx *Syscalls
 )
 
+func (s *Syscall) String() string {
+	if s != nil {
+		return s.Name
+	}
+
+	return ""
+}
+
 func init() {
 	var err error
 
