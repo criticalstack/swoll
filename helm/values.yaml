@@ -1,0 +1,18 @@
+global:
+  criEndpoint: "/run/containerd/containerd.sock"
+  image:
+    repository: harbor.cstack.co/criticalstack/swoll
+    tag: latest
+    pullPolicy: Always
+  service:
+    port: 9095
+    type: NodePort
+
+swollServer:
+  listenPort: 9095
+  nodePort: 32095
+  enablePrometheus: true
+  enabled: true 
+
+swollController:
+  enabled: true

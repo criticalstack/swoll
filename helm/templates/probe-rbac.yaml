@@ -18,5 +18,5 @@ roleRef:
   name: swoll-probe-pods-reader
 subjects:
 - kind: ServiceAccount
-  name: {{ include "swoll.serviceAccountName" . }} 
-  namespace: {{ .Release.Namespace }} 
+  name: default
+  namespace: swoll 
