@@ -19,7 +19,7 @@ import (
 	"github.com/criticalstack/swoll/pkg/kernel"
 	"github.com/criticalstack/swoll/pkg/kernel/filter"
 	"github.com/criticalstack/swoll/pkg/topology"
-	"github.com/logrusorgru/aurora"
+	color "github.com/fatih/color"
 	uuid "github.com/satori/go.uuid"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -151,32 +151,33 @@ var cmdTrace = &cobra.Command{
 		showMsg := func(name string, ev *event.TraceEvent) {
 			switch out {
 			case "cli":
+				green := color.New(color.FgGreen).SprintFunc()
+				red := color.New(color.FgRed).SprintFunc()
+				italic := color.New(color.Italic).SprintFunc()
+				cyan := color.New(color.FgCyan).SprintFunc()
+				bold := color.New(color.Bold).SprintFunc()
+				bgblack := color.New(color.BgBlack).SprintFunc()
+				white := color.New(color.FgWhite).SprintFunc()
+
 				fn := ev.Argv.(call.Function)
 				args := fn.Arguments()
 
-				var errno aurora.Value
+				var errno string
 
 				if ev.Error == 0 {
-					errno = aurora.Green("OK")
+					errno = green("OK")
 				} else {
-					errno = aurora.Red(ev.Error.String())
+					errno = red(ev.Error.String())
 				}
 
 				if !noContainers {
-					fmt.Printf("%35s: [%9s] (%11s) %s(",
-						aurora.Bold(aurora.Green(ev.Container.FQDN())),
-						aurora.Italic(ev.Comm), errno,
-						aurora.Bold(aurora.Cyan(fn.CallName())))
+					fmt.Printf("%35s: [%9s] (%11s) %s(", bold(green(ev.Container.FQDN())), italic(ev.Comm), errno, bold(cyan(fn.CallName())))
 				} else {
-					fmt.Printf("[%15s/%-8d] (%11s) %s(",
-						aurora.Italic(ev.Comm), aurora.Bold(ev.Pid), errno, aurora.Bold(aurora.Cyan(fn.CallName())))
+					fmt.Printf("[%15s/%-8v] (%11s) %s(", italic(ev.Comm), bold(ev.Pid), errno, bold(cyan(fn.CallName())))
 				}
 
 				for x, arg := range args {
-					fmt.Printf("(%s)%s=%v",
-						aurora.Faint(arg.Type),
-						aurora.Italic(arg.Name),
-						aurora.BgBlack(aurora.White(arg.Value)))
+					fmt.Printf("(%s)%s=%v", arg.Type, italic(arg.Name), bgblack(white(arg.Value)))
 
 					if x < len(args)-1 {
 						fmt.Printf(", ")
