@@ -77,12 +77,12 @@ func (ev *RawEvent) Ingest(data interface{}) (*RawEvent, error) {
 	}
 }
 
-// PidNamespace is for podmon.ResolverContext interface abstraction
+// PidNamespace returns the pid-namespace of the current event
 func (ev *RawEvent) PidNamespace() int {
 	return int(ev.PidNS)
 }
 
-// MntNamespace is for podmon.ResolverContext interface abstraction
+// MntNamespace returns the mnt-namespace of the current event
 func (ev *RawEvent) MntNamespace() int {
 	return int(ev.MntNS)
 }

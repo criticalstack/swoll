@@ -780,11 +780,24 @@ func runServer(cmd *cobra.Command, args []string) {
 	}
 
 	ctx := context.Background()
+	// process with k8s support using a Kubernetes Observer for the
+	// Topology API:
+	topo, err := topology.NewKubernetes(
+		topology.WithKubernetesCRI(crisock),
+		topology.WithKubernetesConfig(kconfig),
+		// we use an empty label match here since we pretty dumb and only
+		// use this as our resolver context for incoming messages
+		topology.WithKubernetesLabelSelector("swoll!=false"),
+		topology.WithKubernetesProcRoot(altroot))
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	hb, err := hub.NewHub(&hub.Config{
 		AltRoot:     altroot,
 		BPFObject:   bpf,
 		CRIEndpoint: crisock,
-		K8SEndpoint: kconfig})
+		K8SEndpoint: kconfig}, topo)
 	if err != nil {
 		log.Fatal(err)
 	}

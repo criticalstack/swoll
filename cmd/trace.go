@@ -18,6 +18,7 @@ import (
 	"github.com/criticalstack/swoll/pkg/event/reader"
 	"github.com/criticalstack/swoll/pkg/kernel"
 	"github.com/criticalstack/swoll/pkg/kernel/filter"
+	"github.com/criticalstack/swoll/pkg/topology"
 	"github.com/logrusorgru/aurora"
 	uuid "github.com/satori/go.uuid"
 	"github.com/spf13/cobra"
@@ -191,14 +192,26 @@ var cmdTrace = &cobra.Command{
 		}
 
 		if !noContainers {
-			// process with k8s support
+			// process with k8s support using a Kubernetes Observer for the
+			// Topology API:
+			topo, err := topology.NewKubernetes(
+				topology.WithKubernetesCRI(crisock),
+				topology.WithKubernetesConfig(kconfig),
+				topology.WithKubernetesNamespace(namespace),
+				// we use an empty label match here since we pretty dumb and only
+				// use this as our resolver context for incoming messages
+				topology.WithKubernetesLabelSelector("swoll!=false"),
+				topology.WithKubernetesProcRoot(altroot))
+			if err != nil {
+				log.Fatal(err)
+			}
+
 			hub, err := hub.NewHub(&hub.Config{
 				AltRoot:      altroot,
 				BPFObject:    bpf,
 				CRIEndpoint:  crisock,
 				K8SEndpoint:  kconfig,
-				K8SNamespace: namespace,
-			})
+				K8SNamespace: namespace}, topo)
 			if err != nil {
 				log.Fatal(err)
 			}

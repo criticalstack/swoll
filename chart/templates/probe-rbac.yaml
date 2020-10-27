@@ -1,7 +1,8 @@
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: swoll-pods-reader
+  name: swoll-probe-pods-reader
 rules:
 - apiGroups: [""]
   resources: ["pods"]
@@ -10,34 +11,12 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: swoll-manager-rolebinding
+  name: swoll-probe-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: swoll-pods-reader
+  name: swoll-probe-pods-reader
 subjects:
 - kind: ServiceAccount
-  name: {{ include "swoll.serviceAccountName" . }}
-  namespace: {{ .Release.Namespace }}
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: swoll-secrets-reader
-rules:
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["get", "list"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: swoll-secrets-rolebinding
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: swoll-secrets-reader
-subjects:
-- kind: ServiceAccount
-  name: {{ include "swoll.serviceAccountName" . }}
-  namespace: {{ .Release.Namespace }}
+  name: {{ include "swoll.serviceAccountName" . }} 
+  namespace: {{ .Release.Namespace }} 

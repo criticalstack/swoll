@@ -49,6 +49,9 @@ func (r *TraceReconciler) createJobResource(t *v1alpha1.Trace) (*v1jobs.Job, err
 		},
 		Spec: v1jobs.JobSpec{
 			Template: v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"swoll": "false"},
+				},
 				Spec: v1.PodSpec{
 					RestartPolicy: v1.RestartPolicyNever,
 					Containers: []v1.Container{
