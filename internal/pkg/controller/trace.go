@@ -8,7 +8,7 @@ import (
 
 	"github.com/criticalstack/swoll/api/v1alpha1"
 	"github.com/go-logr/logr"
-	uuid "github.com/satori/go.uuid"
+	uuid "github.com/google/uuid"
 	v1jobs "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,7 +40,7 @@ func (r *TraceReconciler) createJobResource(t *v1alpha1.Trace) (*v1jobs.Job, err
 		t.Spec.Syscalls = append(t.Spec.Syscalls, "sys_execve")
 	}
 
-	jobid := fmt.Sprintf("%s-%s", t.Name, uuid.NewV4().String()[:4])
+	jobid := fmt.Sprintf("%s-%s", t.Name, uuid.New().String()[:4])
 
 	ret := &v1jobs.Job{
 		ObjectMeta: metav1.ObjectMeta{

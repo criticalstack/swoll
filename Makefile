@@ -102,10 +102,10 @@ clean:
 	@rm -rf bin/swoll
 	@$(MAKE) -C internal/bpf clean
 
-$(GOLANGCI_LINT): $(TOOLS_DIR)/go.mod # Build golangci-lint from tools folder.
+$(GOLANGCI_LINT): $(TOOLS_DIR) # Build golangci-lint from tools folder.
 	cd $(TOOLS_DIR); go build -tags=tools -o bin/golangci-lint github.com/golangci/golangci-lint/cmd/golangci-lint
 
-$(GOBINDATA): $(TOOLS_DIR)/go.mod # Build go-bindata from tools folder.
+$(GOBINDATA): # Build go-bindata from tools folder.
 	cd $(TOOLS_DIR); go build -tags=tools -o bin/go-bindata github.com/go-bindata/go-bindata/go-bindata
 
 help:  ## Display this help

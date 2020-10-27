@@ -21,12 +21,12 @@ import (
 	"github.com/criticalstack/swoll/pkg/topology"
 	"github.com/criticalstack/swoll/pkg/types"
 	"github.com/go-echarts/go-echarts/charts"
+	uuid "github.com/google/uuid"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	uuid "github.com/satori/go.uuid"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -341,7 +341,7 @@ func createJobHandler(ctx context.Context, hb *hub.Hub) func(http.ResponseWriter
 			jobid = jid[0]
 		} else {
 			// otherweise, just give us a random-id to return
-			jobid = uuid.NewV4().String()
+			jobid = uuid.New().String()
 		}
 
 		if ns == "" {
