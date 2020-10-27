@@ -16,7 +16,7 @@ import (
 	"github.com/criticalstack/swoll/api/v1alpha1"
 	"github.com/criticalstack/swoll/pkg/client"
 	"github.com/criticalstack/swoll/pkg/event/call"
-	"github.com/logrusorgru/aurora"
+	color "github.com/fatih/color"
 	uuid "github.com/satori/go.uuid"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/labels"
@@ -289,24 +289,32 @@ var cmdClientCreate = &cobra.Command{
 						fn := ev.Data.Argv.(call.Function)
 						args := fn.Arguments()
 
-						var errno aurora.Value
+						green := color.New(color.FgGreen).SprintFunc()
+						red := color.New(color.FgRed).SprintFunc()
+						italic := color.New(color.Italic).SprintFunc()
+						bold := color.New(color.Bold).SprintFunc()
+						cyan := color.New(color.FgCyan).SprintFunc()
+						bgblack := color.New(color.BgBlack).SprintFunc()
+						white := color.New(color.FgWhite).SprintFunc()
+
+						var errno string
 
 						if ev.Data.Error == 0 {
-							errno = aurora.Green("OK")
+							errno = bold(green("OK"))
 						} else {
-							errno = aurora.Red(ev.Data.Error.String())
+							errno = red(ev.Data.Error.String())
 						}
 
 						fmt.Printf("%35s: [%11s] (%11s) %s(",
-							aurora.Bold(aurora.Green(ev.Data.Container.FQDN())),
-							aurora.Italic(ev.Data.Comm), errno,
-							aurora.Bold(aurora.Cyan(fn.CallName())))
+							bold(green(ev.Data.Container.FQDN())),
+							italic(ev.Data.Comm), errno,
+							bold(cyan(fn.CallName())))
 
 						for x, arg := range args {
 							fmt.Printf("(%s)%s=%v",
-								aurora.Faint(arg.Type),
-								aurora.Italic(arg.Name),
-								aurora.BgBlack(aurora.White(arg.Value)))
+								arg.Type,
+								italic(arg.Name),
+								bgblack(white(arg.Value)))
 
 							if x < len(args)-1 {
 								fmt.Fprintf(os.Stdout, ", ")

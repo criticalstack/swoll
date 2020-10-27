@@ -69,7 +69,7 @@ func ExampleTrace() {
 		BPFObject:   []byte(os.Getenv("BPF_OBJECT")),
 		CRIEndpoint: os.Getenv("CRI_ENDPOINT"),
 		K8SEndpoint: os.Getenv("K8S_ENDPOINT"),
-	})
+	}, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
