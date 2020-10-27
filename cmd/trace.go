@@ -20,7 +20,7 @@ import (
 	"github.com/criticalstack/swoll/pkg/kernel/filter"
 	"github.com/criticalstack/swoll/pkg/topology"
 	color "github.com/fatih/color"
-	uuid "github.com/satori/go.uuid"
+	uuid "github.com/google/uuid"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -139,7 +139,7 @@ var cmdTrace = &cobra.Command{
 				Syscalls: scalls,
 			},
 			Status: v1alpha1.TraceStatus{
-				JobID: uuid.NewV4().String()[:8],
+				JobID: uuid.New().String()[:8],
 			},
 		}
 

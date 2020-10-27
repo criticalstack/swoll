@@ -17,7 +17,7 @@ import (
 	"github.com/criticalstack/swoll/pkg/client"
 	"github.com/criticalstack/swoll/pkg/event/call"
 	color "github.com/fatih/color"
-	uuid "github.com/satori/go.uuid"
+	uuid "github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -240,7 +240,7 @@ var cmdClientCreate = &cobra.Command{
 		if jobid == "" {
 			// generate a unique ID which we can use to query all our running probes
 			// with.
-			jobid = uuid.NewV4().String()
+			jobid = uuid.New().String()
 		}
 
 		ctx := context.Background()
