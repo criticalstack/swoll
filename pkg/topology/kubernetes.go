@@ -348,18 +348,18 @@ func (k *Kubernetes) Run(ctx context.Context, out chan<- *ObservationEvent) {
 			newpod := newobj.(*kapi.Pod)
 
 			for _, c := range k.containersForPod(ctx, oldpod) {
-				log.Printf("[info] removing %s.%s.%s\n", c.Name, c.Pod, c.Namespace)
+				log.Printf("[info] (update) removing %s.%s.%s\n", c.Name, c.Pod, c.Namespace)
 
 				out <- &ObservationEvent{EventTypeStop, c}
 			}
 
-			if oldpod.Status.Phase != newpod.Status.Phase {
-				if newpod.Status.Phase == kapi.PodRunning {
-					for _, c := range k.containersForPod(ctx, newpod) {
-						log.Printf("[info] adding %s.%s.%s\n", c.Name, c.Pod, c.Namespace)
+			log.Printf("[info] (update) oldStatus=%v, newStatus=%v\n", oldpod.Status.Phase, newpod.Status.Phase)
 
-						out <- &ObservationEvent{EventTypeStart, c}
-					}
+			if newpod.Status.Phase == kapi.PodRunning {
+				for _, c := range k.containersForPod(ctx, newpod) {
+					log.Printf("[info] (update) adding %s.%s.%s\n", c.Name, c.Pod, c.Namespace)
+
+					out <- &ObservationEvent{EventTypeStart, c}
 				}
 			}
 		},
