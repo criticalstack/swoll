@@ -7,13 +7,12 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: {{ template "toplevel.name" . }} 
-      release: {{ .Release.Name }}
+      {{- include "swoll-server.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       name: {{ template "swoll-server.fullname" . }} 
       labels:
-        app: {{ template "toplevel.name" . }} 
+        {{- include "swoll-server.selectorLabels" . | nindent 8 }}
         swoll: "false"
       annotations:
         {{- include "swoll-server.annotations" . | indent 7}}
@@ -28,8 +27,10 @@ spec:
         - command:
           - swoll
           - server
-          - --cri={{ .Values.global.criEndpoint }}
-          - --listen-addr=":{{ .Values.listenPort }}"
+          - -r 
+          - {{ .Values.global.criEndpoint }}
+          - --listen-addr
+          - ":{{ .Values.listenPort }}"
           - --detect-offsets
           name: {{ template "swoll-server.name" . }} 
           image: "{{ .Values.global.image.repository }}:{{ .Values.global.image.tag }}" 

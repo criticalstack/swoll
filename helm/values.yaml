@@ -1,5 +1,5 @@
 global:
-  criEndpoint: "/run/containerd/containerd.sock"
+  criEndpoint: /run/containerd/containerd.sock
   image:
     repository: harbor.cstack.co/criticalstack/swoll
     tag: latest
@@ -8,11 +8,20 @@ global:
     port: 9095
     type: NodePort
 
-swollServer:
+swoll-server:
+  enabled: true 
   listenPort: 9095
   nodePort: 32095
   enablePrometheus: true
-  enabled: true 
+  serviceAccount:
+    create: true
 
-swollController:
+swoll-controller:
   enabled: true
+  serviceAccount:
+    create: true
+
+serviceAccount:
+  create: true
+
+
