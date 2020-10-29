@@ -1,5 +1,5 @@
-description: A Helm chart for the Swoll Server 
-name: swoll-server 
+description: A Helm chart for the Swoll Controller 
+name: swoll-controller
 version: 0.1.0
 appVersion: 0.1.0 
 keywords:
