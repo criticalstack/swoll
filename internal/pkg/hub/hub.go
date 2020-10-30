@@ -5,7 +5,6 @@ import (
 	"container/list"
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -16,7 +15,8 @@ import (
 	"github.com/criticalstack/swoll/pkg/event/reader"
 	"github.com/criticalstack/swoll/pkg/kernel"
 	"github.com/criticalstack/swoll/pkg/kernel/filter"
-	"github.com/criticalstack/swoll/pkg/podmon"
+	"github.com/criticalstack/swoll/pkg/syscalls"
+	"github.com/criticalstack/swoll/pkg/topology"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -34,9 +34,9 @@ type Hub struct {
 	probe *kernel.Probe
 	// the kernel probe filtering api context
 	filter *filter.Filter
-	// the podmon context for this hub used for resolving kernel namespaces to
-	// pods/containers
-	pm *podmon.PodMon
+	// the topology context for this hub which is used for resolving kernel
+	// namespaces to pods/containers
+	topo *topology.Topology
 	sync.Mutex
 }
 
@@ -67,7 +67,7 @@ func (h *Hub) DeleteTrace(t *v1alpha1.Trace) error {
 
 	jidlist := h.findJobListByID(t.Status.JobID)
 	if jidlist == nil {
-		return fmt.Errorf("job not found")
+		return errors.New("job not found")
 	}
 
 	var next *list.Element
@@ -81,13 +81,13 @@ func (h *Hub) DeleteTrace(t *v1alpha1.Trace) error {
 		jnslist := h.findJobList(ctx.ns, ctx.nr)
 
 		// delete this element from the namespace map
-		log.Printf("Removing %s/%d from namespace-list\n", ctx.JobID(), ctx.nr)
+		log.Printf("Removing %s/%s from namespace-list\n", ctx.JobID(), syscalls.Lookup(ctx.nr))
 		jnslist.Remove(ctx.nselem)
 
 		// if our `nsmap` is now empty, we can safely remove
 		// this from the running kernel filter.
 		if jnslist.Len() == 0 {
-			log.Printf("Bucket for %s/%d empty, dumping job bucket.\n", ctx.JobID(), ctx.nr)
+			log.Printf("Bucket for %s/%s empty, dumping job bucket.\n", ctx.JobID(), syscalls.Lookup(ctx.nr))
 
 			if err := h.filter.RemoveSyscall(ctx.nr, ctx.ns); err != nil {
 				log.Printf("[warn] Failed to remove syscall from kernel-filter: %v", err)
@@ -135,25 +135,26 @@ func (h *Hub) WriteEvent(ev *event.TraceEvent) {
 // find all jobs associated with this message, and publish the event to
 // the streams tied to the jobs.
 func (h *Hub) Run(ctx context.Context) error {
-	// initialize our podmon context in which we use as our Resolver
-	// context for our `TraceEvent` messages.
+	// initialize our kernel reader used to read messages from the kernel.
 	proberdr := reader.NewEventReader(h.probe)
 	//nolint:errcheck
 	go proberdr.Run(ctx)
 
-	pmonrdr := reader.NewEventReader(h.pm)
-	//nolint:errcheck
-	go pmonrdr.Run(ctx)
+	// initialize our topology reader which is used for resolving
+	// kernel-namespaces back to the container/pod it was sourced from.
+	topordr := reader.NewEventReader(h.topo)
+	// nolint:errcheck
+	go topordr.Run(ctx)
 
 	for {
 		select {
-		case <-pmonrdr.Read():
+		case <-topordr.Read():
 			// we keep an active podmon reader available for kernel-namespace to
 			// container resolution
 		case ev := <-proberdr.Read():
 			// read a single event from the kernel, allcoate empty TraceEvent,
-			// initialize the underlying with the podmon resolver
-			msg := new(event.TraceEvent).WithPodMon(h.pm)
+			// initialize the underlying with the topology resolver
+			msg := new(event.TraceEvent).WithTopology(h.topo)
 			if _, err := msg.Ingest(ev); err != nil {
 				continue
 			}
@@ -179,11 +180,10 @@ func (h *Hub) Run(ctx context.Context) error {
 					j.Value.(*JobContext).WriteEvent(h, msg)
 				}
 			} else {
-				fmt.Printf("no jobs matched for %v/%v", msg.PidNamespace, msg.Syscall)
+				log.Printf("no jobs matched for %v/%v", msg.PidNamespace, msg.Syscall)
 			}
 
 			h.Unlock()
-
 		}
 	}
 
@@ -254,7 +254,7 @@ func (h *Hub) PushJob(job *Job, ns, nr int) {
 
 // NewHub creates and initializes a Hub context for reading and writing data to
 // the kernel probe and routing them to the clients that care.
-func NewHub(config *Config) (*Hub, error) {
+func NewHub(config *Config, observer topology.Observer) (*Hub, error) {
 	if len(config.BPFObject) == 0 {
 		return nil, errors.New("BPF object missing")
 	}
@@ -283,18 +283,6 @@ func NewHub(config *Config) (*Hub, error) {
 		return nil, err
 	}
 
-	pm, err := podmon.NewPodMon(&podmon.Config{
-		AltRoot:      config.AltRoot,
-		CRIEndpoint:  config.CRIEndpoint,
-		K8SEndpoint:  config.K8SEndpoint,
-		K8SNamespace: config.K8SNamespace,
-		// we use an empty label match here since we pretty dumb and only
-		// use this as our resolver context for incoming messages
-		PodLabelEnable: "syswall!=false"})
-	if err != nil {
-		return nil, err
-	}
-
 	return &Hub{
 		config: config,
 		nsmap:  make(map[int]map[int]*JobList),
@@ -302,14 +290,14 @@ func NewHub(config *Config) (*Hub, error) {
 		ps:     pubsub.New(),
 		probe:  probe,
 		filter: filter,
-		pm:     pm,
+		topo:   topology.NewTopology(observer),
 	}, nil
 }
 
-// Podmon returns the Hub's current underlying PodMon context
-func (h *Hub) Podmon() *podmon.PodMon {
+// Topology returns this Hub's current underlying topology context
+func (h *Hub) Topology() *topology.Topology {
 	if h != nil {
-		return h.pm
+		return h.topo
 	}
 
 	return nil

@@ -3,7 +3,7 @@
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: traces.tools.syswall.criticalstack.com
+  name: traces.tools.swoll.criticalstack.com
 spec:
   conversion:
     strategy: Webhook

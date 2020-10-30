@@ -10,8 +10,8 @@ import (
 	"github.com/criticalstack/swoll/internal/pkg/pubsub"
 	"github.com/criticalstack/swoll/pkg/event"
 	"github.com/criticalstack/swoll/pkg/event/reader"
-	"github.com/criticalstack/swoll/pkg/podmon"
 	"github.com/criticalstack/swoll/pkg/syscalls"
+	"github.com/criticalstack/swoll/pkg/topology"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -70,7 +70,7 @@ func (j *Job) RemoveContainer(pod, name string) {
 }
 
 // Run will run a job inside the Hub. The primary goal of this function is to
-// read podmon events using the LabelMatch, and for each pod that matches,
+// read topology events using the LabelMatch, and for each pod that matches,
 // create the kernel filter if needed, and append the JobContext to the list
 // of running jobs in the Hub.
 func (j *Job) Run(h *Hub, done chan bool) error {
@@ -78,29 +78,30 @@ func (j *Job) Run(h *Hub, done chan bool) error {
 	j.Status.StartTime = &now
 
 	spec := j.TraceSpec()
-	pm, err := podmon.NewPodMon(&podmon.Config{
-		AltRoot:        h.config.AltRoot,
-		CRIEndpoint:    h.config.CRIEndpoint,
-		K8SEndpoint:    h.config.K8SEndpoint,
-		K8SNamespace:   j.Namespace,
-		PodLabelEnable: labels.Set(spec.LabelSelector.MatchLabels).String(),
-		FieldSelector:  labels.Set(spec.FieldSelector.MatchLabels).String()})
+	kubetop, err := topology.NewKubernetes(
+		topology.WithKubernetesCRI(h.config.CRIEndpoint),
+		topology.WithKubernetesConfig(h.config.K8SEndpoint),
+		topology.WithKubernetesNamespace(j.Namespace),
+		topology.WithKubernetesProcRoot(h.config.AltRoot),
+		topology.WithKubernetesLabelSelector(labels.Set(spec.LabelSelector.MatchLabels).String()),
+		topology.WithKubernetesFieldSelector(labels.Set(spec.FieldSelector.MatchLabels).String()))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	rdr := reader.NewEventReader(pm)
+	topo := topology.NewTopology(kubetop)
+	rdr := reader.NewEventReader(topo)
 	//nolint:errcheck
 	go rdr.Run(context.TODO())
 
 	// these are the list of syscalls which will be used as rules for each
-	// matched container from podmon.
+	// matched container from the topology api.
 	calls := make(syscalls.SyscallList, 0)
 	for _, sc := range spec.Syscalls {
 		calls = append(calls, syscalls.Lookup(sc))
 	}
 
-	// It should be noted that we are looking at podmon events, meaning these
+	// It should be noted that we are looking at topology events, meaning these
 	// are messages informing us about containers entering and leaving the
 	// cluster. So when you see kernel filters being added and removed, even if
 	// associated with another job, these are containers that have left or
@@ -109,9 +110,9 @@ func (j *Job) Run(h *Hub, done chan bool) error {
 		select {
 		case ev := <-rdr.Read():
 			switch ev := ev.(type) {
-			case event.PodmonAddEvent:
+			case event.ContainerAddEvent:
 				// new container found inside cluster that matched our labels
-				name := ev.Name()
+				name := ev.Name
 
 				if len(spec.HostSelector) > 0 {
 					// if we have a host-selector array in our spec, attempt to
@@ -133,8 +134,8 @@ func (j *Job) Run(h *Hub, done chan bool) error {
 
 				}
 
-				pns := ev.PIDNamespace()
-				j.AddContainer(ev.Pod(), name)
+				pns := ev.PidNamespace
+				j.AddContainer(ev.Pod, name)
 
 				// got a new container that matched, for each syscall, push a
 				// job up that associates pidns+syscallNR with this job
@@ -154,10 +155,10 @@ func (j *Job) Run(h *Hub, done chan bool) error {
 					}
 				}
 
-			case event.PodmonDelEvent:
+			case event.ContainerDelEvent:
 				// container that matched our labels is being removed from the cluster.
-				pns := ev.PIDNamespace()
-				j.RemoveContainer(ev.Pod(), ev.Name())
+				pns := ev.PidNamespace
+				j.RemoveContainer(ev.Pod, ev.Name)
 
 				for _, sc := range calls {
 					log.Printf("[%s/%d] removing syscall '%s' to kernel-filter\n", j.JobID(), pns, sc.Name)

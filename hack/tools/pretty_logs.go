@@ -11,7 +11,7 @@ import (
 
 	"github.com/criticalstack/swoll/pkg/client"
 	"github.com/criticalstack/swoll/pkg/event/call"
-	"github.com/logrusorgru/aurora"
+	"github.com/fatih/color"
 )
 
 func main() {
@@ -34,24 +34,23 @@ func main() {
 		fn := event.Data.Argv.(call.Function)
 		args := fn.Arguments()
 
-		var errno aurora.Value
+		var errno string
 
 		if event.Data.Error == 0 {
-			errno = aurora.Green("OK")
+			errno = color.GreenString("OK")
 		} else {
-			errno = aurora.Red(event.Data.Error.String())
+			errno = color.RedString(event.Data.Error.String())
 		}
 
-		fmt.Printf("%35s: [%8s] (%11s) %s(",
-			aurora.Bold(aurora.Green(event.Data.Container.FQDN())),
-			aurora.Italic(event.Data.Comm), errno,
-			aurora.Bold(aurora.Cyan(fn.CallName())))
+		bold := color.New(color.Bold).SprintFunc()
+		italic := color.New(color.Italic).SprintFunc()
+		cyan := color.New(color.FgCyan).SprintFunc()
+		green := color.New(color.FgGreen).SprintFunc()
+
+		fmt.Printf("%35s: [%8s] (%11s) %s(", bold(green(event.Data.Container.FQDN())), italic(event.Data.Comm), errno, bold(cyan(fn.CallName())))
 
 		for x, arg := range args {
-			fmt.Printf("(%s)%s=%v",
-				aurora.Bold(arg.Type),
-				aurora.Italic(arg.Name),
-				aurora.BgBlack(aurora.White(arg.Value)))
+			fmt.Printf("(%s)%s=%v", bold(arg.Type), italic(arg.Name), bold(arg.Value))
 
 			if x < len(args)-1 {
 				fmt.Printf(", ")

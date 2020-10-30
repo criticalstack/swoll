@@ -42,13 +42,11 @@
     })
 
 
-#undef SC__DEBUG
-
 #if defined(SC__DEBUG)
-#define D_(fmt, ...)                                                \
-    ({                                                              \
-        char ____fmt[] = fmt;                                       \
-        bpf_trace_printk(____fmt, sizeof(____fmt), ## __VA_ARGS__); \
+#define D_(fmt, ...)                                          \
+    ({                                                        \
+        char _fmt[] = fmt;                                    \
+        bpf_trace_printk(_fmt, sizeof(_fmt), ## __VA_ARGS__); \
     })
 #else
 #define D_(fmt, ...)
@@ -85,59 +83,32 @@ struct on_exit_args {
 #define FARGS_STRUCT(TYPE)     FARGS_STRUCT_DEF(TYPE) TYPE
 
 
-/*
- * field:int __syscall_nr; offset:8;       size:4; signed:1;
- * field:pid_t pid;        offset:16;      size:8; signed:0;
- * field:int sig;  offset:24;      size:8; signed:0;
- */
 FARGS_STRUCT_DEF(kill) {
     __s32 nr;
     __u64 pid;
     __u64 sig;
 };
 
-/*
- * field:int __syscall_nr; offset:8;       size:4; signed:1;
- * field:const char * name;        offset:16;      size:8; signed:0;
- */
 FARGS_STRUCT_DEF(acct) {
     __s32        nr;
     const char * pathname;
 };
-/*
- * field:int __syscall_nr; offset:8;       size:4; signed:1;
- * field:unsigned int seconds;     offset:16;      size:8; signed:0;
- */
+
 FARGS_STRUCT_DEF(alarm) {
     __s32 nr;
     __u64 seconds;
 };
 
-/*
- *     field:int __syscall_nr; offset:8;       size:4; signed:1;
- *     field:unsigned long brk;        offset:16;      size:8; signed:0;
- *     */
 FARGS_STRUCT_DEF(brk) {
     __s32 nr;
     __u64 addr;
 };
 
-/*
- *  field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:const char * pathname;	offset:16;	size:8;	signed:0;
- *      field:struct statfs * buf;	offset:24;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(statfs) {
     __s32           nr;
     const char    * pathname;
     struct statfs * buf;
 };
-
-/*
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:unsigned int fd;	offset:16;	size:8;	signed:0;
- *      field:struct stat * statbuf;	offset:24;	size:8;	signed:0;
- */
 
 FARGS_STRUCT_DEF(fstat) {
     __u32         nr;
@@ -152,15 +123,6 @@ FARGS_STRUCT_DEF(stat) {
     struct stat * statbuf;
 };
 
-/*
- *  field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:char * dev_name;	offset:16;	size:8;	signed:0;
- *      field:char * dir_name;	offset:24;	size:8;	signed:0;
- *      field:char * type;	offset:32;	size:8;	signed:0;
- *      field:unsigned long flags;	offset:40;	size:8;	signed:0;
- *      field:void * data;	offset:48;	size:8;	signed:0;
- */
-
 FARGS_STRUCT_DEF(mount) {
     __u32  nr;
     char * dev_name;
@@ -170,17 +132,11 @@ FARGS_STRUCT_DEF(mount) {
     void * data;
 };
 
-/*
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:char * name;	offset:16;	size:8;	signed:0;
- *      field:int flags;	offset:24;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(umount2) {
     __u32  nr;
     char * name;
     __u64  flags;
 };
-
 
 FARGS_STRUCT_DEF(openat) {
     __s32   nr;
@@ -248,16 +204,6 @@ FARGS_STRUCT_DEF(unlinkat) {
     char * pathname;
     __u64  offset;
 };
-
-/*
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:unsigned long addr;	offset:16;	size:8;	signed:0;
- *      field:unsigned long len;	offset:24;	size:8;	signed:0;
- *      field:unsigned long prot;	offset:32;	size:8;	signed:0;
- *      field:unsigned long flags;	offset:40;	size:8;	signed:0;
- *      field:unsigned long fd;	offset:48;	size:8;	signed:0;
- *      field:unsigned long off;	offset:56;	size:8;	signed:0;
- */
 
 FARGS_STRUCT_DEF(mmap) {
     __u32 nr;
@@ -422,31 +368,18 @@ FARGS_STRUCT_DEF(poll) {
     __u64           timeout_msecs;
 };
 
-/*
- *  field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:int fd;	offset:16;	size:8;	signed:0;
- *      field:int nstype;	offset:24;	size:8;	signed:0;
- */
-
 FARGS_STRUCT_DEF(setns) {
     __s32 nr;
     __u64 fd;
     __u64 nstype;
 };
 
-/*
- *  field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:int family;	offset:16;	size:8;	signed:0;
- *      field:int type;	offset:24;	size:8;	signed:0;
- *      field:int protocol;	offset:32;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(socket) {
     __s32 nr;
     __u64 family;
     __u64 type;
     __u64 protocol;
 };
-
 
 FARGS_STRUCT_DEF(prctl) {
     __u32 nr;
@@ -457,13 +390,6 @@ FARGS_STRUCT_DEF(prctl) {
     __u64 arg5;
 };
 
-/*
- *  field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:pid_t pid;	offset:16;	size:8;	signed:0;
- *      field:unsigned int resource;	offset:24;	size:8;	signed:0;
- *      field:const struct rlimit64 * new_rlim;	offset:32;	size:8;	signed:0;
- *      field:struct rlimit64 * old_rlim;	offset:40;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(prlimit64) {
     __u32                   nr;
     __u64                   pid;
@@ -472,12 +398,6 @@ FARGS_STRUCT_DEF(prlimit64) {
     struct rlimit64       * old_rlim;
 };
 
-/*
- *  field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:int fd;	offset:16;	size:8;	signed:0;
- *      field:struct user_msghdr * msg;	offset:24;	size:8;	signed:0;
- *      field:unsigned int flags;	offset:32;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(recvmsg) {
     __u32                nr;
     __s64                fd;
@@ -486,15 +406,6 @@ FARGS_STRUCT_DEF(recvmsg) {
 };
 
 
-/*
- *  field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:int fd;	offset:16;	size:8;	signed:0;
- *      field:void * buff;	offset:24;	size:8;	signed:0;
- *      field:size_t len;	offset:32;	size:8;	signed:0;
- *      field:unsigned int flags;	offset:40;	size:8;	signed:0;
- *      field:struct sockaddr * addr;	offset:48;	size:8;	signed:0;
- *      field:int addr_len;	offset:56;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(sendto) {
     __u32             nr;
     __u64             fd;
@@ -504,17 +415,6 @@ FARGS_STRUCT_DEF(sendto) {
     struct sockaddr * addr;
     __u64             addr_len;
 };
-
-
-/*
- * field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:int fd;	offset:16;	size:8;	signed:0;
- *      field:void * ubuf;	offset:24;	size:8;	signed:0;
- *      field:size_t size;	offset:32;	size:8;	signed:0;
- *      field:unsigned int flags;	offset:40;	size:8;	signed:0;
- *      field:struct sockaddr * addr;	offset:48;	size:8;	signed:0;
- *      field:int * addr_len;	offset:56;	size:8;	signed:0;
- */
 
 FARGS_STRUCT_DEF(recvfrom) {
     __u32             nr;
@@ -526,55 +426,27 @@ FARGS_STRUCT_DEF(recvfrom) {
     __u64           * addr_len;
 };
 
-/*
- *
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:uid_t uid;	offset:16;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(setuid) {
     __u32 nr;
     __u64 uid;
 };
 
-/*
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:uid_t ruid;	offset:16;	size:8;	signed:0;
- *      field:uid_t euid;	offset:24;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(setreuid) {
     __u32 nr;
     __u64 ruid;
     __u64 euid;
 };
 
-/*
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:unsigned int fd;	offset:16;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(close) {
     __u32 nr;
     __u64 fd;
 };
-
-
-/*
- *  field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:const char * pathname;	offset:16;	size:8;	signed:0;
- */
 
 FARGS_STRUCT_DEF(rmdir) {
     __u32        nr;
     const char * pathname;
 };
 
-
-/*
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:long request;	offset:16;	size:8;	signed:0;
- *      field:long pid;	offset:24;	size:8;	signed:0;
- *      field:unsigned long addr;	offset:32;	size:8;	signed:0;
- *      field:unsigned long data;	offset:40;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(ptrace) {
     __u32 nr;
     __u64 request;
@@ -583,11 +455,6 @@ FARGS_STRUCT_DEF(ptrace) {
     __u64 data;
 };
 
-
-/*
- *  field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:const char * filename;	offset:16;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(chdir) {
     __u32        nr;
     const char * filename;
@@ -599,25 +466,11 @@ FARGS_STRUCT_DEF(chroot) {
     const char * filename;
 };
 
-
-/*
- *  field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:const char * oldname;	offset:16;	size:8;	signed:0;
- *      field:const char * newname;	offset:24;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(link) {
     __u32        nr;
     const char * oldname;
     const char * newname;
 };
-
-/*
- *
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:const char * path;	offset:16;	size:8;	signed:0;
- *      field:char * buf;	offset:24;	size:8;	signed:0;
- *      field:int bufsiz;	offset:32;	size:8;	signed:0;
- */
 
 FARGS_STRUCT_DEF(readlink) {
     __u32        nr;
@@ -625,14 +478,6 @@ FARGS_STRUCT_DEF(readlink) {
     char       * buf;
     __u64        bufsiz;
 };
-
-/*
- *  field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:int dfd;	offset:16;	size:8;	signed:0;
- *      field:const char * pathname;	offset:24;	size:8;	signed:0;
- *      field:char * buf;	offset:32;	size:8;	signed:0;
- *      field:int bufsiz;	offset:40;	size:8;	signed:0;
- */
 
 FARGS_STRUCT_DEF(readlinkat) {
     __u32        nr;
@@ -642,40 +487,18 @@ FARGS_STRUCT_DEF(readlinkat) {
     __u64        bufsiz;
 };
 
-
-
-/*  field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:const char * oldname;	offset:16;	size:8;	signed:0;
- *      field:const char * newname;	offset:24;	size:8;	signed:0;
- */
-
 FARGS_STRUCT_DEF(symlink) {
     __u32        nr;
     const char * oldname;
     const char * newname;
 };
 
-/*
- *
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:int fd;	offset:16;	size:8;	signed:0;
- *      field:struct sockaddr * usockaddr;	offset:24;	size:8;	signed:0;
- *      field:int * usockaddr_len;	offset:32;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(getpeername) {
     __u32             nr;
     __u64             fd;
     struct sockaddr * usockaddr;
     __u64           * usockaddr_len;
 };
-
-
-/*
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:int fd;	offset:16;	size:8;	signed:0;
- *      field:struct sockaddr * usockaddr;	offset:24;	size:8;	signed:0;
- *      field:int * usockaddr_len;	offset:32;	size:8;	signed:0;
- */
 
 FARGS_STRUCT_DEF(getsockname) {
     __u32             nr;
@@ -684,14 +507,6 @@ FARGS_STRUCT_DEF(getsockname) {
     __u64             usockaddr_len;
 };
 
-/*
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:int fd;	offset:16;	size:8;	signed:0;
- *      field:struct sockaddr * upeer_sockaddr;	offset:24;	size:8;	signed:0;
- *      field:int * upeer_addrlen;	offset:32;	size:8;	signed:0;
- *  field:int flags;	offset:40;	size:8;	signed:0;
- *
- */
 FARGS_STRUCT_DEF(accept) {
     __u32             nr;
     __u64             fd;
@@ -700,13 +515,6 @@ FARGS_STRUCT_DEF(accept) {
     __u64             flags;
 };
 
-
-/*
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:unsigned long start;	offset:16;	size:8;	signed:0;
- *      field:size_t len;	offset:24;	size:8;	signed:0;
- *      field:unsigned long prot;	offset:32;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(mprotect) {
     __u32 nr;
     __u64 start;
@@ -714,14 +522,6 @@ FARGS_STRUCT_DEF(mprotect) {
     __u64 prot;
 };
 
-/*
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:int fd;	offset:16;	size:8;	signed:0;
- *      field:int level;	offset:24;	size:8;	signed:0;
- *      field:int optname;	offset:32;	size:8;	signed:0;
- *      field:char * optval;	offset:40;	size:8;	signed:0;
- *      field:int optlen;	offset:48;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(setsockopt) {
     __u32  nr;
     __u64  fd;
@@ -731,14 +531,6 @@ FARGS_STRUCT_DEF(setsockopt) {
     __u64  optlen;
 };
 
-/*
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:int fd;	offset:16;	size:8;	signed:0;
- *      field:int level;	offset:24;	size:8;	signed:0;
- *      field:int optname;	offset:32;	size:8;	signed:0;
- *      field:char * optval;	offset:40;	size:8;	signed:0;
- *      field:int * optlen;	offset:48;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(getsockopt) {
     __u32   nr;
     __u64   fd;
@@ -748,24 +540,12 @@ FARGS_STRUCT_DEF(getsockopt) {
     __u64 * optlen;
 };
 
-
-/*
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:const char * pathname;	offset:16;	size:8;	signed:0;
- *      field:umode_t mode;	offset:24;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(creat) {
     __u32        nr;
     const char * pathname;
     __u64        mode;
 };
 
-/*
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:void * umod;	offset:16;	size:8;	signed:0;
- *      field:unsigned long len;	offset:24;	size:8;	signed:0;
- *      field:const char * uargs;	offset:32;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(init_module) {
     __u32   nr;
     void  * umod;
@@ -773,12 +553,6 @@ FARGS_STRUCT_DEF(init_module) {
     __u64 * uargs;
 };
 
-/*
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:unsigned int op;	offset:16;	size:8;	signed:0;
- *      field:unsigned int flags;	offset:24;	size:8;	signed:0;
- *      field:const char * uargs;	offset:32;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(seccomp) {
     __u32        nr;
     __u64        op;
@@ -786,24 +560,11 @@ FARGS_STRUCT_DEF(seccomp) {
     const char * uargs;
 };
 
-/*
- *      field:char * name;	offset:16;	size:8;	signed:0;
- *      field:int len;	offset:24;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(sethostname) {
     __u32  nr;
     char * name;
     __u64  len;
 };
-
-/*
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:unsigned long clone_flags;	offset:16;	size:8;	signed:0;
- *      field:unsigned long newsp;	offset:24;	size:8;	signed:0;
- *      field:int * parent_tidptr;	offset:32;	size:8;	signed:0;
- *      field:int * child_tidptr;	offset:40;	size:8;	signed:0;
- *      field:unsigned long tls;	offset:48;	size:8;	signed:0;
- */
 
 FARGS_STRUCT_DEF(clone) {
     __u32   nr;
@@ -814,13 +575,6 @@ FARGS_STRUCT_DEF(clone) {
     __u64   tls;
 };
 
-
-/*
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:unsigned int fd;	offset:16;	size:8;	signed:0;
- *      field:char * buf;	offset:24;	size:8;	signed:0;
- *      field:size_t count;	offset:32;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(read) {
     __u32  nr;
     __u64  fd;
@@ -828,12 +582,6 @@ FARGS_STRUCT_DEF(read) {
     __u64  count;
 };
 
-/*
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:unsigned int fd;	offset:16;	size:8;	signed:0;
- *      field:unsigned int cmd;	offset:24;	size:8;	signed:0;
- *      field:unsigned long arg;	offset:32;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(ioctl) {
     __u32 nr;
     __u64 fd;
@@ -841,24 +589,11 @@ FARGS_STRUCT_DEF(ioctl) {
     __u64 arg;
 };
 
-/*
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:const char * oldname;	offset:16;	size:8;	signed:0;
- *      field:const char * newname;	offset:24;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(rename) {
     __u32        nr;
     const char * oldname;
     const char * newname;
 };
-
-/*
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:int ufd;	offset:16;	size:8;	signed:0;
- *      field:int flags;	offset:24;	size:8;	signed:0;
- *      field:const struct itimerspec * utmr;	offset:32;	size:8;	signed:0;
- *      field:struct itimerspec * otmr;	offset:40;	size:8;	signed:0;
- */
 
 FARGS_STRUCT_DEF(timerfd_settime) {
     __u32                     nr;
@@ -868,24 +603,12 @@ FARGS_STRUCT_DEF(timerfd_settime) {
     struct itimerspec       * otmr;
 };
 
-/*
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:int clockid;	offset:16;	size:8;	signed:0;
- *      field:int flags;	offset:24;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(timerfd_create) {
     __u32 nr;
     __u64 clockid;
     __u64 flags;
 };
 
-
-/*
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:unsigned long start;	offset:16;	size:8;	signed:0;
- *      field:size_t len;	offset:24;	size:8;	signed:0;
- *      field:unsigned char * vec;	offset:32;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(mincore)
 {
     __u32           nr;
@@ -894,11 +617,6 @@ FARGS_STRUCT_DEF(mincore)
     unsigned char * vec;
 };
 
-/*
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:unsigned int fd;	offset:16;	size:8;	signed:0;
- *      field:unsigned long length;	offset:24;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(ftruncate)
 {
     __u32 nr;
@@ -906,12 +624,6 @@ FARGS_STRUCT_DEF(ftruncate)
     __u64 length;
 };
 
-
-/*
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:struct timespec * rqtp;	offset:16;	size:8;	signed:0;
- *      field:struct timespec * rmtp;	offset:24;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(nanosleep)
 {
     __u32             nr;
@@ -919,14 +631,6 @@ FARGS_STRUCT_DEF(nanosleep)
     struct timespec * rmtp;
 };
 
-
-/*
- *  field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:int sig;	offset:16;	size:8;	signed:0;
- *      field:const struct sigaction * act;	offset:24;	size:8;	signed:0;
- *      field:struct sigaction * oact;	offset:32;	size:8;	signed:0;
- *      field:size_t sigsetsize;	offset:40;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(rt_sigaction) {
     __u32              nr;
     __u64              sig;
@@ -935,13 +639,6 @@ FARGS_STRUCT_DEF(rt_sigaction) {
     __u64              sigsetsize;
 };
 
-
-/*
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:unsigned int fd;	offset:16;	size:8;	signed:0;
- *      field:const char * buf;	offset:24;	size:8;	signed:0;
- *      field:size_t count;	offset:32;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(write)
 {
     __u32        nr;
@@ -950,15 +647,6 @@ FARGS_STRUCT_DEF(write)
     __u64        count;
 };
 
-/*
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:u32 * uaddr;	offset:16;	size:8;	signed:0;
- *      field:int op;	offset:24;	size:8;	signed:0;
- *      field:u32 val;	offset:32;	size:8;	signed:0;
- *      field:struct timespec * utime;	offset:40;	size:8;	signed:0;
- *      field:u32 * uaddr2;	offset:48;	size:8;	signed:0;
- *      field:u32 val3;	offset:56;	size:8;	signed:0;
- */
 FARGS_STRUCT_DEF(futex) {
     __u32             nr;
     __u64           * uaddr;
@@ -978,12 +666,6 @@ FARGS_STRUCT_DEF(select)
     fd_set         * exp;
     struct timeval * tvp;
 };
-
-
-/*
- *      field:int __syscall_nr;	offset:8;	size:4;	signed:1;
- *      field:int error_code;	offset:16;	size:8;	signed:0;
- */
 
 FARGS_STRUCT_DEF(exit)
 {
@@ -1088,7 +770,6 @@ struct sk_event_key {
 
 struct sk_metrics_key {
     __u32 pid_ns;  /* The PID namespace that this metric belongs to */
-    __u32 mnt_ns;  /* The MNT namespace this belongs to */
     __u32 syscall; /* Syscall NR */
     __u16 error;   /* Errno of the syscall (if non-zero) */
     __u16 pad;     /* for alignment */
@@ -1144,6 +825,12 @@ struct sk_event {
         struct sk_buff _buff;
     };
 };
+
+#define EVENT_ARG0(ev) (ev)->_args.a0
+#define EVENT_ARG1(ev) (ev)->_args.a1
+#define EVENT_ARG2(ev) (ev)->_args.a2
+#define EVENT_ARG3(ev) (ev)->_args.a3
+#define EVENT_ARG4(ev) (ev)->_args.a4
 
 /* we only want to memset 0 out the byte NOT INCLUDING
  * the argument and comm arguments. Those we can just
@@ -1269,8 +956,8 @@ struct bpf_map_def
 SEC("maps/sk_offsets_config") sk_offsets_config =
 {
     .type        = BPF_MAP_TYPE_HASH,
-    #define SK_OSCFG_NSPROXY     1
-    #define SK_OSCFG_PIDNS       2
+    #define SK_OSCFG_NSPROXY 1
+    #define SK_OSCFG_PIDNS   2
     .key_size    = sizeof(sk_offscfg_t),
     .value_size  = sizeof(__u32),
     .max_entries = 2,
@@ -1627,7 +1314,7 @@ sysk__lookup_metrics(struct sk_metrics_key * key)
 }
 
 static _inline void
-sysk__update_metrics(const __u32 pid_ns, const __u32 mnt_ns, const __u32 nr, const __s32 err)
+sysk__update_metrics(const __u32 pid_ns, const __u32 nr, const __s32 err)
 {
     struct sk_metrics_key   key         = { 0 };
     struct sk_metrics_val * val;
@@ -1636,19 +1323,16 @@ sysk__update_metrics(const __u32 pid_ns, const __u32 mnt_ns, const __u32 nr, con
     __u64                   enter_ktime = 0;/*ktime; */
 
     key.pid_ns  = pid_ns;
-    key.mnt_ns  = mnt_ns;
     key.syscall = nr;
 
     if (err && err < 255) {
-        /* since we assume err == errno, anything that is outside the normal
+        /* we assume err == errno, anything that is outside the normal
          * errno range should not be treated as an error.
-         */
-        /* since we are collecting the timeSpent metric, and we bae
-         * that off of the enter_ktime which is set by the entry
-         * handler, which has no way to determine an error, so it sets
-         * the ktime key with the error field set to 0.
          *
-         * So fetch that ktime here.
+         * Since we are collecting the timeSpent metric, we base
+         * that off of the enter_ktime which is set by the entry
+         * handler - a function which has no way to determine an error, if one has occured.
+         * So this sets the ktime key with the error field set to 0.
          */
         if ((val = sysk__lookup_metrics(&key))) {
             enter_ktime = val->_enter_ktime;
@@ -1679,11 +1363,10 @@ sysk__update_metrics(const __u32 pid_ns, const __u32 mnt_ns, const __u32 nr, con
 } /* sysk__update_metrics */
 
 static _inline void
-sysk__update_metrics_ktime(const __u32 pid_ns, const __u32 mnt_ns, const __u32 nr)
+sysk__update_metrics_ktime(const __u32 pid_ns, const __u32 nr)
 {
     struct sk_metrics_key   key = {
         .pid_ns  = pid_ns,
-        .mnt_ns  = mnt_ns,
         .syscall = nr,
         .error   = 0
     };
@@ -1708,7 +1391,6 @@ sysk__fill_metrics(struct __args * ctx, __u8 state)
     if (ctx) {
         struct task_struct * task   = (struct task_struct *)bpf_get_current_task();
         __u32                pid_ns = sysk__task_pid_namespace(task);
-        __u32                mnt_ns = sysk__task_mnt_namespace(task);
         __u32                nr     = sysk__syscall_get_nr(ctx);
 
         if (nr == 0xFFFFFFFF) {
@@ -1721,13 +1403,13 @@ sysk__fill_metrics(struct __args * ctx, __u8 state)
                  * we wait for the EXIT state so we can calculate total
                  * time spent in each call.
                  */
-                sysk__update_metrics_ktime(pid_ns, mnt_ns, nr);
+                sysk__update_metrics_ktime(pid_ns, nr);
                 break;
             case METRICS_STATE_EXIT:
             {
                 __s32 err = (int)ctx->on_exit.ret < 0 ? -(int)ctx->on_exit.ret : 0;
 
-                sysk__update_metrics(pid_ns, mnt_ns, nr, err);
+                sysk__update_metrics(pid_ns, nr, err);
             }
             break;
         }
@@ -1798,8 +1480,8 @@ FARGS_FUNC(kill)
 {
     FARGS_INIT(kill);
 
-    memcpy(event->_args.a0, &kill->pid, sizeof(kill->pid));
-    memcpy(event->_args.a1, &kill->sig, sizeof(kill->sig));
+    memcpy(EVENT_ARG0(event), &kill->pid, sizeof(kill->pid));
+    memcpy(EVENT_ARG1(event), &kill->sig, sizeof(kill->sig));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -1808,7 +1490,7 @@ FARGS_FUNC(setuid)
 {
     FARGS_INIT(setuid);
 
-    memcpy(event->_args.a0, &setuid->uid, sizeof(setuid->uid));
+    memcpy(EVENT_ARG0(event), &setuid->uid, sizeof(setuid->uid));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -1840,51 +1522,9 @@ FARGS_FUNC(recvmsg)
 {
     FARGS_INIT(recvmsg);
 
-    memcpy(event->_args.a0, &recvmsg->fd, sizeof(recvmsg->fd));
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), (void *)recvmsg->msg);
-    memcpy(event->_args.a2, &recvmsg->flags, sizeof(recvmsg->flags));
-
-#if 0
-    if (recvmsg->msg != NULL) {
-        struct user_msghdr * hdr = _(recvmsg->msg);
-
-        if (hdr != NULL) {
-            size_t            iovlen = _(hdr->msg_iovlen);
-            struct iovec    * iov    = _(hdr->msg_iov);
-            struct sk_iovec * vec    = (struct sk_iovec *)event->_args.a3;
-
-            memset(event->_args.a3, 0, sizeof(event->_args.a3));
-            memset(vec, 0, sizeof(struct sk_iovec));
-
-            vec->rlen = 0;
-            switch (iovlen) {
-                case 2:
-                case 1:
-                {
-                    size_t len        = _(iov[0].iov_len);
-                    size_t bytes_left = sizeof(vec->buf) - vec->rlen;
-                    if (len >= bytes_left) {
-                        bpf_probe_read(vec->buf, bytes_left - vec->rlen, (void *)&iov[0].iov_base);
-                        vec->rlen += bytes_left;
-                        vec->trunc = 1;
-                    } else {
-                        bpf_probe_read(vec->buf, len, (void *)&iov[0].iov_base);
-                    }
-                }
-                break;
-            }
-
-
-            if (iov != NULL) {
-                size_t l = _(iov->iov_len);
-
-                D_("%ld %ld\n", l, iovlen);
-            }
-        }
-    }
-
-#endif
-
+    memcpy(EVENT_ARG0(event), &recvmsg->fd, sizeof(recvmsg->fd));
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), (void *)recvmsg->msg);
+    memcpy(EVENT_ARG2(event), &recvmsg->flags, sizeof(recvmsg->flags));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -1893,11 +1533,11 @@ FARGS_FUNC(sendto)
 {
     FARGS_INIT(sendto);
 
-    memcpy(event->_args.a0, &sendto->fd, sizeof(sendto->fd));
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), (void *)sendto->ubuf);
-    memcpy(event->_args.a2, &sendto->size, sizeof(sendto->size));
-    memcpy(event->_args.a3, &sendto->flags, sizeof(sendto->flags));
-    bpf_probe_read(event->_args.a4, sizeof(event->_args.a4), (void *)sendto->addr);
+    memcpy(EVENT_ARG0(event), &sendto->fd, sizeof(sendto->fd));
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), (void *)sendto->ubuf);
+    memcpy(EVENT_ARG2(event), &sendto->size, sizeof(sendto->size));
+    memcpy(EVENT_ARG3(event), &sendto->flags, sizeof(sendto->flags));
+    bpf_probe_read(EVENT_ARG4(event), sizeof(EVENT_ARG4(event)), (void *)sendto->addr);
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -1907,11 +1547,11 @@ FARGS_FUNC(recvfrom)
 {
     FARGS_INIT(recvfrom);
 
-    memcpy(event->_args.a0, &recvfrom->fd, sizeof(recvfrom->fd));
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), (void *)recvfrom->ubuf);
-    memcpy(event->_args.a2, &recvfrom->size, sizeof(recvfrom->size));
-    memcpy(event->_args.a3, &recvfrom->flags, sizeof(recvfrom->flags));
-    bpf_probe_read(event->_args.a4, sizeof(event->_args.a4), (void *)recvfrom->addr);
+    memcpy(EVENT_ARG0(event), &recvfrom->fd, sizeof(recvfrom->fd));
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), (void *)recvfrom->ubuf);
+    memcpy(EVENT_ARG2(event), &recvfrom->size, sizeof(recvfrom->size));
+    memcpy(EVENT_ARG3(event), &recvfrom->flags, sizeof(recvfrom->flags));
+    bpf_probe_read(EVENT_ARG4(event), sizeof(EVENT_ARG4(event)), (void *)recvfrom->addr);
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -1920,10 +1560,10 @@ FARGS_FUNC(mount)
 {
     FARGS_INIT(mount);
 
-    bpf_probe_read(event->_args.a0, sizeof(event->_args.a0), (void *)mount->dev_name);
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), (void *)mount->dir_name);
-    bpf_probe_read(event->_args.a2, sizeof(event->_args.a2), (void *)mount->type);
-    memcpy(event->_args.a3, &mount->flags, sizeof(mount->flags));
+    bpf_probe_read(EVENT_ARG0(event), sizeof(EVENT_ARG0(event)), (void *)mount->dev_name);
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), (void *)mount->dir_name);
+    bpf_probe_read(EVENT_ARG2(event), sizeof(EVENT_ARG2(event)), (void *)mount->type);
+    memcpy(EVENT_ARG3(event), &mount->flags, sizeof(mount->flags));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -1932,8 +1572,8 @@ FARGS_FUNC(umount2)
 {
     FARGS_INIT(umount2);
 
-    bpf_probe_read(event->_args.a0, sizeof(event->_args.a0), (void *)umount2->name);
-    memcpy(event->_args.a1, &umount2->flags, sizeof(umount2->flags));
+    bpf_probe_read(EVENT_ARG0(event), sizeof(EVENT_ARG0(event)), (void *)umount2->name);
+    memcpy(EVENT_ARG1(event), &umount2->flags, sizeof(umount2->flags));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -1942,8 +1582,8 @@ FARGS_FUNC(access)
 {
     FARGS_INIT(access);
 
-    bpf_probe_read(event->_args.a0, sizeof(event->_args.a0), (void *)access->filename);
-    memcpy(event->_args.a1, &access->mode, sizeof(access->mode));
+    bpf_probe_read(EVENT_ARG0(event), sizeof(EVENT_ARG0(event)), (void *)access->filename);
+    memcpy(EVENT_ARG1(event), &access->mode, sizeof(access->mode));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -1952,11 +1592,10 @@ FARGS_FUNC(prlimit64)
 {
     FARGS_INIT(prlimit64);
 
-    memcpy(event->_args.a0, &prlimit64->pid, sizeof(prlimit64->pid));
-    memcpy(event->_args.a1, &prlimit64->resource, sizeof(prlimit64->resource));
-
-    bpf_probe_read(event->_args.a2, sizeof(event->_args.a2), (void *)prlimit64->new_rlim);
-    bpf_probe_read(event->_args.a3, sizeof(event->_args.a3), (void *)prlimit64->old_rlim);
+    memcpy(EVENT_ARG0(event), &prlimit64->pid, sizeof(prlimit64->pid));
+    memcpy(EVENT_ARG1(event), &prlimit64->resource, sizeof(prlimit64->resource));
+    bpf_probe_read(EVENT_ARG2(event), sizeof(EVENT_ARG2(event)), (void *)prlimit64->new_rlim);
+    bpf_probe_read(EVENT_ARG3(event), sizeof(EVENT_ARG3(event)), (void *)prlimit64->old_rlim);
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -1965,8 +1604,8 @@ FARGS_FUNC(setns)
 {
     FARGS_INIT(setns);
 
-    memcpy(event->_args.a0, &setns->fd, sizeof(setns->fd));
-    memcpy(event->_args.a1, &setns->nstype, sizeof(setns->nstype));
+    memcpy(EVENT_ARG0(event), &setns->fd, sizeof(setns->fd));
+    memcpy(EVENT_ARG1(event), &setns->nstype, sizeof(setns->nstype));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -1975,9 +1614,9 @@ FARGS_FUNC(bind)
 {
     FARGS_INIT(bind);
 
-    memcpy(event->_args.a0, &bind->fd, sizeof(bind->fd));
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), bind->umyaddr);
-    memcpy(event->_args.a2, &bind->addrlen, sizeof(bind->addrlen));
+    memcpy(EVENT_ARG0(event), &bind->fd, sizeof(bind->fd));
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), bind->umyaddr);
+    memcpy(EVENT_ARG2(event), &bind->addrlen, sizeof(bind->addrlen));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -1986,9 +1625,9 @@ FARGS_FUNC(socket)
 {
     FARGS_INIT(socket);
 
-    memcpy(event->_args.a0, &socket->family, sizeof(socket->family));
-    memcpy(event->_args.a1, &socket->type, sizeof(socket->type));
-    memcpy(event->_args.a2, &socket->protocol, sizeof(socket->protocol));
+    memcpy(EVENT_ARG0(event), &socket->family, sizeof(socket->family));
+    memcpy(EVENT_ARG1(event), &socket->type, sizeof(socket->type));
+    memcpy(EVENT_ARG2(event), &socket->protocol, sizeof(socket->protocol));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -1998,9 +1637,9 @@ FARGS_FUNC(openat)
 {
     FARGS_INIT(openat);
 
-    memcpy(event->_args.a0, &openat->dfd, sizeof(openat->dfd));
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), openat->filename);
-    memcpy(event->_args.a2, &openat->flags, sizeof(openat->flags));
+    memcpy(EVENT_ARG0(event), &openat->dfd, sizeof(openat->dfd));
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), openat->filename);
+    memcpy(EVENT_ARG2(event), &openat->flags, sizeof(openat->flags));
 
 
     return FARGS_COMMON_LTZERO_ERROR;
@@ -2010,9 +1649,9 @@ FARGS_FUNC(open)
 {
     FARGS_INIT(open);
 
-    bpf_probe_read(event->_args.a0, sizeof(event->_args.a0), open->filename);
-    memcpy(event->_args.a1, &open->flags, sizeof(open->flags));
-    memcpy(event->_args.a2, &open->mode, sizeof(open->mode));
+    bpf_probe_read(EVENT_ARG0(event), sizeof(EVENT_ARG0(event)), open->filename);
+    memcpy(EVENT_ARG1(event), &open->flags, sizeof(open->flags));
+    memcpy(EVENT_ARG2(event), &open->mode, sizeof(open->mode));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2022,9 +1661,9 @@ FARGS_FUNC(connect)
     FARGS_INIT(connect);
     struct sockaddr * a = (void *)_(connect->uservaddr);
 
-    memcpy(event->_args.a0, &connect->fd, sizeof(connect->fd));
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), a);
-    memcpy(event->_args.a2, &connect->addrlen, sizeof(connect->addrlen));
+    memcpy(EVENT_ARG0(event), &connect->fd, sizeof(connect->fd));
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), a);
+    memcpy(EVENT_ARG2(event), &connect->addrlen, sizeof(connect->addrlen));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2033,7 +1672,6 @@ FARGS_FUNC(connect)
 FARGS_FUNC(execve)
 {
     FARGS_INIT(execve);
-
     return FARGS_COMMON_LTZERO_ERROR;
 }
 
@@ -2041,7 +1679,7 @@ FARGS_FUNC(unlink)
 {
     FARGS_INIT(unlink);
 
-    bpf_probe_read(event->_args.a0, sizeof(event->_args.a0), unlink->pathname);
+    bpf_probe_read(EVENT_ARG0(event), sizeof(EVENT_ARG0(event)), unlink->pathname);
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2050,9 +1688,9 @@ FARGS_FUNC(unlinkat)
 {
     FARGS_INIT(unlinkat);
 
-    memcpy(event->_args.a0, &unlinkat->dfd, sizeof(unlinkat->dfd));
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), unlinkat->pathname);
-    memcpy(event->_args.a2, &unlinkat->offset, sizeof(unlinkat->offset));
+    memcpy(EVENT_ARG0(event), &unlinkat->dfd, sizeof(unlinkat->dfd));
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), unlinkat->pathname);
+    memcpy(EVENT_ARG2(event), &unlinkat->offset, sizeof(unlinkat->offset));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2061,8 +1699,8 @@ FARGS_FUNC(epoll_wait)
 {
     FARGS_INIT(epoll_wait);
 
-    memcpy(event->_args.a0, &epoll_wait->epfd, sizeof(epoll_wait->epfd));
-    memcpy(event->_args.a2, &epoll_wait->maxevents, sizeof(epoll_wait->maxevents));
+    memcpy(EVENT_ARG0(event), &epoll_wait->epfd, sizeof(epoll_wait->epfd));
+    memcpy(EVENT_ARG2(event), &epoll_wait->maxevents, sizeof(epoll_wait->maxevents));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2071,10 +1709,9 @@ FARGS_FUNC(faccessat)
 {
     FARGS_INIT(faccessat);
 
-    memcpy(event->_args.a0, &faccessat->dfd, sizeof(faccessat->dfd));
-    memcpy(event->_args.a2, &faccessat->mode, sizeof(faccessat->mode));
-    memcpy(event->_args.a2, &faccessat->mode, sizeof(faccessat->mode));
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), faccessat->filename);
+    memcpy(EVENT_ARG0(event), &faccessat->dfd, sizeof(faccessat->dfd));
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), faccessat->filename);
+    memcpy(EVENT_ARG2(event), &faccessat->mode, sizeof(faccessat->mode));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2083,11 +1720,11 @@ FARGS_FUNC(statx)
 {
     FARGS_INIT(statx);
 
-    memcpy(event->_args.a0, &statx->dfd, sizeof(statx->dfd));
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), statx->filename);
-    memcpy(event->_args.a2, &statx->flags, sizeof(statx->flags));
-    memcpy(event->_args.a3, &statx->mask, sizeof(statx->mask));
-    bpf_probe_read(event->_args.a4, sizeof(event->_args.a4), statx->buffer);
+    memcpy(EVENT_ARG0(event), &statx->dfd, sizeof(statx->dfd));
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), statx->filename);
+    memcpy(EVENT_ARG2(event), &statx->flags, sizeof(statx->flags));
+    memcpy(EVENT_ARG3(event), &statx->mask, sizeof(statx->mask));
+    bpf_probe_read(EVENT_ARG4(event), sizeof(EVENT_ARG4(event)), statx->buffer);
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2096,9 +1733,9 @@ FARGS_FUNC(syslog)
 {
     FARGS_INIT(syslog);
 
-    memcpy(event->_args.a0, &syslog->type, sizeof(syslog->type));
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), syslog->buf);
-    memcpy(event->_args.a2, &syslog->len, sizeof(syslog->len));
+    memcpy(EVENT_ARG0(event), &syslog->type, sizeof(syslog->type));
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), syslog->buf);
+    memcpy(EVENT_ARG2(event), &syslog->len, sizeof(syslog->len));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2107,9 +1744,9 @@ FARGS_FUNC(fcntl)
 {
     FARGS_INIT(fcntl);
 
-    memcpy(event->_args.a0, &fcntl->fd, sizeof(fcntl->fd));
-    memcpy(event->_args.a1, &fcntl->cmd, sizeof(fcntl->cmd));
-    memcpy(event->_args.a2, &fcntl->arg, sizeof(fcntl->arg));
+    memcpy(EVENT_ARG0(event), &fcntl->fd, sizeof(fcntl->fd));
+    memcpy(EVENT_ARG1(event), &fcntl->cmd, sizeof(fcntl->cmd));
+    memcpy(EVENT_ARG2(event), &fcntl->arg, sizeof(fcntl->arg));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2118,7 +1755,7 @@ FARGS_FUNC(fdatasync)
 {
     FARGS_INIT(fdatasync);
 
-    memcpy(event->_args.a0, &fdatasync->fd, sizeof(fdatasync->fd));
+    memcpy(EVENT_ARG0(event), &fdatasync->fd, sizeof(fdatasync->fd));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2127,8 +1764,8 @@ FARGS_FUNC(fstatfs)
 {
     FARGS_INIT(fstatfs);
 
-    memcpy(event->_args.a0, &fstatfs->fd, sizeof(fstatfs->fd));
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), fstatfs->buf);
+    memcpy(EVENT_ARG0(event), &fstatfs->fd, sizeof(fstatfs->fd));
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), fstatfs->buf);
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2137,8 +1774,8 @@ FARGS_FUNC(fstat)
 {
     FARGS_INIT(fstat);
 
-    memcpy(event->_args.a0, &fstat->fd, sizeof(fstat->fd));
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), fstat->statbuf);
+    memcpy(EVENT_ARG0(event), &fstat->fd, sizeof(fstat->fd));
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), fstat->statbuf);
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2147,8 +1784,8 @@ FARGS_FUNC(stat)
 {
     FARGS_INIT(stat);
 
-    bpf_probe_read(event->_args.a0, sizeof(event->_args.a0), (void *)stat->filename);
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), (void *)stat->statbuf);
+    bpf_probe_read(EVENT_ARG0(event), sizeof(EVENT_ARG0(event)), (void *)stat->filename);
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), (void *)stat->statbuf);
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2157,8 +1794,8 @@ FARGS_FUNC(statfs)
 {
     FARGS_INIT(statfs);
 
-    bpf_probe_read(event->_args.a0, sizeof(event->_args.a0), (void *)statfs->pathname);
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), statfs->buf);
+    bpf_probe_read(EVENT_ARG0(event), sizeof(EVENT_ARG0(event)), (void *)statfs->pathname);
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), statfs->buf);
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2167,7 +1804,7 @@ FARGS_FUNC(acct)
 {
     FARGS_INIT(acct);
 
-    bpf_probe_read(event->_args.a0, sizeof(event->_args.a0), (void *)acct->pathname);
+    bpf_probe_read(EVENT_ARG0(event), sizeof(EVENT_ARG0(event)), (void *)acct->pathname);
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2176,7 +1813,7 @@ FARGS_FUNC(alarm)
 {
     FARGS_INIT(alarm);
 
-    memcpy(event->_args.a0, &alarm->seconds, sizeof(alarm->seconds));
+    memcpy(EVENT_ARG0(event), &alarm->seconds, sizeof(alarm->seconds));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2185,7 +1822,7 @@ FARGS_FUNC(brk)
 {
     FARGS_INIT(brk);
 
-    memcpy(event->_args.a0, &brk->addr, sizeof(brk->addr));
+    memcpy(EVENT_ARG0(event), &brk->addr, sizeof(brk->addr));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2194,7 +1831,7 @@ FARGS_FUNC(fsync)
 {
     FARGS_INIT(fsync);
 
-    memcpy(event->_args.a0, &fsync->fd, sizeof(fsync->fd));
+    memcpy(EVENT_ARG0(event), &fsync->fd, sizeof(fsync->fd));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2203,8 +1840,8 @@ FARGS_FUNC(ftruncate)
 {
     FARGS_INIT(ftruncate);
 
-    memcpy(event->_args.a0, &ftruncate->fd, sizeof(ftruncate->fd));
-    memcpy(event->_args.a1, &ftruncate->length, sizeof(ftruncate->length));
+    memcpy(EVENT_ARG0(event), &ftruncate->fd, sizeof(ftruncate->fd));
+    memcpy(EVENT_ARG1(event), &ftruncate->length, sizeof(ftruncate->length));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2213,8 +1850,8 @@ FARGS_FUNC(getcwd)
 {
     FARGS_INIT(getcwd);
 
-    bpf_probe_read(event->_args.a0, sizeof(event->_args.a0), getcwd->buf);
-    memcpy(event->_args.a1, &getcwd->size, sizeof(getcwd->size));
+    bpf_probe_read(EVENT_ARG0(event), sizeof(EVENT_ARG0(event)), getcwd->buf);
+    memcpy(EVENT_ARG1(event), &getcwd->size, sizeof(getcwd->size));
 
     return FARGS_COMMON_NULL_ERROR;
 }
@@ -2223,8 +1860,8 @@ FARGS_FUNC(getdents)
 {
     FARGS_INIT(getdents);
 
-    memcpy(event->_args.a0, &getdents->fd, sizeof(getdents->fd));
-    memcpy(event->_args.a2, &getdents->count, sizeof(getdents->count));
+    memcpy(EVENT_ARG0(event), &getdents->fd, sizeof(getdents->fd));
+    memcpy(EVENT_ARG2(event), &getdents->count, sizeof(getdents->count));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2233,9 +1870,9 @@ FARGS_FUNC(inotify_add_watch)
 {
     FARGS_INIT(inotify_add_watch);
 
-    memcpy(event->_args.a0, &inotify_add_watch->fd, sizeof(inotify_add_watch->fd));
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), inotify_add_watch->pathname);
-    memcpy(event->_args.a2, &inotify_add_watch->mask, sizeof(inotify_add_watch->mask));
+    memcpy(EVENT_ARG0(event), &inotify_add_watch->fd, sizeof(inotify_add_watch->fd));
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), inotify_add_watch->pathname);
+    memcpy(EVENT_ARG2(event), &inotify_add_watch->mask, sizeof(inotify_add_watch->mask));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2244,8 +1881,8 @@ FARGS_FUNC(listen)
 {
     FARGS_INIT(listen);
 
-    memcpy(event->_args.a0, &listen->fd, sizeof(listen->fd));
-    memcpy(event->_args.a1, &listen->backlog, sizeof(listen->backlog));
+    memcpy(EVENT_ARG0(event), &listen->fd, sizeof(listen->fd));
+    memcpy(EVENT_ARG1(event), &listen->backlog, sizeof(listen->backlog));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2254,9 +1891,9 @@ FARGS_FUNC(lookup_dcookie)
 {
     FARGS_INIT(lookup_dcookie);
 
-    memcpy(event->_args.a0, &lookup_dcookie->cookie64, sizeof(lookup_dcookie->cookie64));
-    memcpy(event->_args.a2, &lookup_dcookie->len, sizeof(lookup_dcookie->len));
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), lookup_dcookie->buf);
+    memcpy(EVENT_ARG0(event), &lookup_dcookie->cookie64, sizeof(lookup_dcookie->cookie64));
+    memcpy(EVENT_ARG2(event), &lookup_dcookie->len, sizeof(lookup_dcookie->len));
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), lookup_dcookie->buf);
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2265,9 +1902,9 @@ FARGS_FUNC(lseek)
 {
     FARGS_INIT(lseek);
 
-    memcpy(event->_args.a0, &lseek->fd, sizeof(lseek->fd));
-    memcpy(event->_args.a1, &lseek->offset, sizeof(lseek->offset));
-    memcpy(event->_args.a2, &lseek->whence, sizeof(lseek->whence));
+    memcpy(EVENT_ARG0(event), &lseek->fd, sizeof(lseek->fd));
+    memcpy(EVENT_ARG1(event), &lseek->offset, sizeof(lseek->offset));
+    memcpy(EVENT_ARG2(event), &lseek->whence, sizeof(lseek->whence));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2276,9 +1913,9 @@ FARGS_FUNC(madvise)
 {
     FARGS_INIT(madvise);
 
-    memcpy(event->_args.a0, &madvise->start, sizeof(madvise->start));
-    memcpy(event->_args.a1, &madvise->len_in, sizeof(madvise->len_in));
-    memcpy(event->_args.a2, &madvise->behavior, sizeof(madvise->behavior));
+    memcpy(EVENT_ARG0(event), &madvise->start, sizeof(madvise->start));
+    memcpy(EVENT_ARG1(event), &madvise->len_in, sizeof(madvise->len_in));
+    memcpy(EVENT_ARG2(event), &madvise->behavior, sizeof(madvise->behavior));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2287,8 +1924,8 @@ FARGS_FUNC(membarrier)
 {
     FARGS_INIT(membarrier);
 
-    memcpy(event->_args.a0, &membarrier->cmd, sizeof(membarrier->cmd));
-    memcpy(event->_args.a1, &membarrier->flags, sizeof(membarrier->flags));
+    memcpy(EVENT_ARG0(event), &membarrier->cmd, sizeof(membarrier->cmd));
+    memcpy(EVENT_ARG1(event), &membarrier->flags, sizeof(membarrier->flags));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2297,8 +1934,8 @@ FARGS_FUNC(mkdir)
 {
     FARGS_INIT(mkdir);
 
-    bpf_probe_read(event->_args.a0, sizeof(event->_args.a0), mkdir->pathname);
-    memcpy(event->_args.a1, &mkdir->mode, sizeof(mkdir->mode));
+    bpf_probe_read(EVENT_ARG0(event), sizeof(EVENT_ARG0(event)), mkdir->pathname);
+    memcpy(EVENT_ARG1(event), &mkdir->mode, sizeof(mkdir->mode));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2307,9 +1944,9 @@ FARGS_FUNC(mkdirat)
 {
     FARGS_INIT(mkdirat);
 
-    memcpy(event->_args.a0, &mkdirat->dfd, sizeof(mkdirat->dfd));
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), mkdirat->pathname);
-    memcpy(event->_args.a2, &mkdirat->mode, sizeof(mkdirat->mode));
+    memcpy(EVENT_ARG0(event), &mkdirat->dfd, sizeof(mkdirat->dfd));
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), mkdirat->pathname);
+    memcpy(EVENT_ARG2(event), &mkdirat->mode, sizeof(mkdirat->mode));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2318,9 +1955,9 @@ FARGS_FUNC(mknod)
 {
     FARGS_INIT(mknod);
 
-    bpf_probe_read(event->_args.a0, sizeof(event->_args.a0), mknod->filename);
-    memcpy(event->_args.a1, &mknod->mode, sizeof(mknod->mode));
-    memcpy(event->_args.a2, &mknod->dev, sizeof(mknod->dev));
+    bpf_probe_read(EVENT_ARG0(event), sizeof(EVENT_ARG0(event)), mknod->filename);
+    memcpy(EVENT_ARG1(event), &mknod->mode, sizeof(mknod->mode));
+    memcpy(EVENT_ARG2(event), &mknod->dev, sizeof(mknod->dev));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2329,8 +1966,8 @@ FARGS_FUNC(mlock)
 {
     FARGS_INIT(mlock);
 
-    memcpy(event->_args.a0, &mlock->start, sizeof(mlock->start));
-    memcpy(event->_args.a1, &mlock->len, sizeof(mlock->len));
+    memcpy(EVENT_ARG0(event), &mlock->start, sizeof(mlock->start));
+    memcpy(EVENT_ARG1(event), &mlock->len, sizeof(mlock->len));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2339,8 +1976,8 @@ FARGS_FUNC(pivot_root)
 {
     FARGS_INIT(pivot_root);
 
-    bpf_probe_read(event->_args.a0, sizeof(event->_args.a0), pivot_root->new_root);
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), pivot_root->put_old);
+    bpf_probe_read(EVENT_ARG0(event), sizeof(EVENT_ARG0(event)), pivot_root->new_root);
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), pivot_root->put_old);
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2349,8 +1986,8 @@ FARGS_FUNC(poll)
 {
     FARGS_INIT(poll);
 
-    memcpy(event->_args.a1, &poll->nfds, sizeof(poll->nfds));
-    memcpy(event->_args.a2, &poll->timeout_msecs, sizeof(poll->timeout_msecs));
+    memcpy(EVENT_ARG1(event), &poll->nfds, sizeof(poll->nfds));
+    memcpy(EVENT_ARG2(event), &poll->timeout_msecs, sizeof(poll->timeout_msecs));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2359,9 +1996,9 @@ FARGS_FUNC(prctl)
 {
     FARGS_INIT(prctl);
 
-    memcpy(event->_args.a0, &prctl->option, sizeof(prctl->option));
-    memcpy(event->_args.a1, &prctl->arg2, sizeof(prctl->arg2));
-    memcpy(event->_args.a2, &prctl->arg3, sizeof(prctl->arg3));
+    memcpy(EVENT_ARG0(event), &prctl->option, sizeof(prctl->option));
+    memcpy(EVENT_ARG1(event), &prctl->arg2, sizeof(prctl->arg2));
+    memcpy(EVENT_ARG2(event), &prctl->arg3, sizeof(prctl->arg3));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2370,10 +2007,10 @@ FARGS_FUNC(ptrace)
 {
     FARGS_INIT(ptrace);
 
-    memcpy(event->_args.a0, &ptrace->request, sizeof(ptrace->request));
-    memcpy(event->_args.a1, &ptrace->pid, sizeof(ptrace->pid));
-    memcpy(event->_args.a2, &ptrace->addr, sizeof(ptrace->addr));
-    memcpy(event->_args.a3, &ptrace->data, sizeof(ptrace->data));
+    memcpy(EVENT_ARG0(event), &ptrace->request, sizeof(ptrace->request));
+    memcpy(EVENT_ARG1(event), &ptrace->pid, sizeof(ptrace->pid));
+    memcpy(EVENT_ARG2(event), &ptrace->addr, sizeof(ptrace->addr));
+    memcpy(EVENT_ARG3(event), &ptrace->data, sizeof(ptrace->data));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2382,7 +2019,7 @@ FARGS_FUNC(close)
 {
     FARGS_INIT(close);
 
-    memcpy(event->_args.a0, &close->fd, sizeof(close->fd));
+    memcpy(EVENT_ARG0(event), &close->fd, sizeof(close->fd));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2391,7 +2028,7 @@ FARGS_FUNC(rmdir)
 {
     FARGS_INIT(rmdir);
 
-    bpf_probe_read(event->_args.a0, sizeof(event->_args.a0), (void *)rmdir->pathname);
+    bpf_probe_read(EVENT_ARG0(event), sizeof(EVENT_ARG0(event)), (void *)rmdir->pathname);
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2400,7 +2037,7 @@ FARGS_FUNC(chdir)
 {
     FARGS_INIT(chdir);
 
-    bpf_probe_read(event->_args.a0, sizeof(event->_args.a0), (void *)chdir->filename);
+    bpf_probe_read(EVENT_ARG0(event), sizeof(EVENT_ARG0(event)), (void *)chdir->filename);
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2416,7 +2053,7 @@ FARGS_FUNC(chroot)
 {
     FARGS_INIT(chroot);
 
-    bpf_probe_read(event->_args.a0, sizeof(event->_args.a0), (void *)chroot->filename);
+    bpf_probe_read(EVENT_ARG0(event), sizeof(EVENT_ARG0(event)), (void *)chroot->filename);
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2425,8 +2062,8 @@ FARGS_FUNC(link)
 {
     FARGS_INIT(link);
 
-    bpf_probe_read(event->_args.a0, sizeof(event->_args.a0), (void *)link->oldname);
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), (void *)link->newname);
+    bpf_probe_read(EVENT_ARG0(event), sizeof(EVENT_ARG0(event)), (void *)link->oldname);
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), (void *)link->newname);
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2442,8 +2079,8 @@ FARGS_FUNC(symlink)
 {
     FARGS_INIT(symlink);
 
-    bpf_probe_read(event->_args.a0, sizeof(event->_args.a0), (void *)symlink->oldname);
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), (void *)symlink->newname);
+    bpf_probe_read(EVENT_ARG0(event), sizeof(EVENT_ARG0(event)), (void *)symlink->oldname);
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), (void *)symlink->newname);
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2460,9 +2097,9 @@ FARGS_FUNC(readlink)
 {
     FARGS_INIT(readlink);
 
-    bpf_probe_read(event->_args.a0, sizeof(event->_args.a0), (void *)readlink->path);
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), (void *)readlink->buf);
-    memcpy(event->_args.a2, &readlink->bufsiz, sizeof(readlink->bufsiz));
+    bpf_probe_read(EVENT_ARG0(event), sizeof(EVENT_ARG0(event)), (void *)readlink->path);
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), (void *)readlink->buf);
+    memcpy(EVENT_ARG2(event), &readlink->bufsiz, sizeof(readlink->bufsiz));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2471,10 +2108,10 @@ FARGS_FUNC(readlinkat)
 {
     FARGS_INIT(readlinkat);
 
-    memcpy(event->_args.a0, &readlinkat->dfd, sizeof(readlinkat->dfd));
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a0), (void *)readlinkat->pathname);
-    bpf_probe_read(event->_args.a2, sizeof(event->_args.a1), (void *)readlinkat->buf);
-    memcpy(event->_args.a3, &readlinkat->bufsiz, sizeof(readlinkat->bufsiz));
+    memcpy(EVENT_ARG0(event), &readlinkat->dfd, sizeof(readlinkat->dfd));
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG0(event)), (void *)readlinkat->pathname);
+    bpf_probe_read(EVENT_ARG2(event), sizeof(EVENT_ARG1(event)), (void *)readlinkat->buf);
+    memcpy(EVENT_ARG3(event), &readlinkat->bufsiz, sizeof(readlinkat->bufsiz));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2483,9 +2120,9 @@ FARGS_FUNC(getpeername)
 {
     FARGS_INIT(getpeername);
 
-    memcpy(event->_args.a0, &getpeername->fd, sizeof(getpeername->fd));
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), getpeername->usockaddr);
-    memcpy(event->_args.a2, &getpeername->usockaddr_len, sizeof(getpeername->usockaddr_len));
+    memcpy(EVENT_ARG0(event), &getpeername->fd, sizeof(getpeername->fd));
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), getpeername->usockaddr);
+    memcpy(EVENT_ARG2(event), &getpeername->usockaddr_len, sizeof(getpeername->usockaddr_len));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2494,9 +2131,9 @@ FARGS_FUNC(getsockname)
 {
     FARGS_INIT(getsockname);
 
-    memcpy(event->_args.a0, &getsockname->fd, sizeof(getsockname->fd));
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), getsockname->usockaddr);
-    memcpy(event->_args.a2, &getsockname->usockaddr_len, sizeof(getsockname->usockaddr_len));
+    memcpy(EVENT_ARG0(event), &getsockname->fd, sizeof(getsockname->fd));
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), getsockname->usockaddr);
+    memcpy(EVENT_ARG2(event), &getsockname->usockaddr_len, sizeof(getsockname->usockaddr_len));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2505,9 +2142,9 @@ FARGS_FUNC(accept)
 {
     FARGS_INIT(accept);
 
-    memcpy(event->_args.a0, &accept->fd, sizeof(accept->fd));
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), accept->saddr);
-    memcpy(event->_args.a2, &accept->saddr_len, sizeof(accept->saddr_len));
+    memcpy(EVENT_ARG0(event), &accept->fd, sizeof(accept->fd));
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), accept->saddr);
+    memcpy(EVENT_ARG2(event), &accept->saddr_len, sizeof(accept->saddr_len));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2516,10 +2153,10 @@ FARGS_FUNC(accept4)
 {
     FARGS_INIT(accept);
 
-    memcpy(event->_args.a0, &accept->fd, sizeof(accept->fd));
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), accept->saddr);
-    memcpy(event->_args.a2, &accept->saddr_len, sizeof(accept->saddr_len));
-    memcpy(event->_args.a3, &accept->flags, sizeof(accept->flags));
+    memcpy(EVENT_ARG0(event), &accept->fd, sizeof(accept->fd));
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), accept->saddr);
+    memcpy(EVENT_ARG2(event), &accept->saddr_len, sizeof(accept->saddr_len));
+    memcpy(EVENT_ARG3(event), &accept->flags, sizeof(accept->flags));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2528,10 +2165,10 @@ FARGS_FUNC(mprotect)
 {
     FARGS_INIT(mprotect);
 
-    memcpy(event->_args.a0, &mprotect->start, sizeof(mprotect->start));
-    memcpy(event->_args.a1, &mprotect->len, sizeof(mprotect->len));
-    memcpy(event->_args.a2, &mprotect->prot, sizeof(mprotect->prot));
-    bpf_probe_read(event->_args.a3, sizeof(event->_args.a3), (void *)mprotect->start);
+    memcpy(EVENT_ARG0(event), &mprotect->start, sizeof(mprotect->start));
+    memcpy(EVENT_ARG1(event), &mprotect->len, sizeof(mprotect->len));
+    memcpy(EVENT_ARG2(event), &mprotect->prot, sizeof(mprotect->prot));
+    bpf_probe_read(EVENT_ARG3(event), sizeof(EVENT_ARG3(event)), (void *)mprotect->start);
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2540,11 +2177,11 @@ FARGS_FUNC(setsockopt)
 {
     FARGS_INIT(setsockopt);
 
-    memcpy(event->_args.a0, &setsockopt->fd, sizeof(setsockopt->fd));
-    memcpy(event->_args.a1, &setsockopt->level, sizeof(setsockopt->level));
-    memcpy(event->_args.a2, &setsockopt->optname, sizeof(setsockopt->optname));
-    bpf_probe_read(event->_args.a3, sizeof(event->_args.a3), setsockopt->optval);
-    memcpy(event->_args.a4, &setsockopt->optlen, sizeof(setsockopt->optlen));
+    memcpy(EVENT_ARG0(event), &setsockopt->fd, sizeof(setsockopt->fd));
+    memcpy(EVENT_ARG1(event), &setsockopt->level, sizeof(setsockopt->level));
+    memcpy(EVENT_ARG2(event), &setsockopt->optname, sizeof(setsockopt->optname));
+    bpf_probe_read(EVENT_ARG3(event), sizeof(EVENT_ARG3(event)), setsockopt->optval);
+    memcpy(EVENT_ARG4(event), &setsockopt->optlen, sizeof(setsockopt->optlen));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2553,11 +2190,11 @@ FARGS_FUNC(getsockopt)
 {
     FARGS_INIT(getsockopt);
 
-    memcpy(event->_args.a0, &getsockopt->fd, sizeof(getsockopt->fd));
-    memcpy(event->_args.a1, &getsockopt->level, sizeof(getsockopt->level));
-    memcpy(event->_args.a2, &getsockopt->optname, sizeof(getsockopt->optname));
-    bpf_probe_read(event->_args.a3, sizeof(__u64), getsockopt->optval);
-    bpf_probe_read(event->_args.a4, sizeof(__u64 *), getsockopt->optlen);
+    memcpy(EVENT_ARG0(event), &getsockopt->fd, sizeof(getsockopt->fd));
+    memcpy(EVENT_ARG1(event), &getsockopt->level, sizeof(getsockopt->level));
+    memcpy(EVENT_ARG2(event), &getsockopt->optname, sizeof(getsockopt->optname));
+    bpf_probe_read(EVENT_ARG3(event), sizeof(__u64), getsockopt->optval);
+    bpf_probe_read(EVENT_ARG4(event), sizeof(__u64 *), getsockopt->optlen);
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2567,8 +2204,8 @@ FARGS_FUNC(creat)
 {
     FARGS_INIT(creat);
 
-    bpf_probe_read(event->_args.a0, sizeof(event->_args.a0), (void *)creat->pathname);
-    memcpy(event->_args.a1, &creat->mode, sizeof(creat->mode));
+    bpf_probe_read(EVENT_ARG0(event), sizeof(EVENT_ARG0(event)), (void *)creat->pathname);
+    memcpy(EVENT_ARG1(event), &creat->mode, sizeof(creat->mode));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2577,9 +2214,9 @@ FARGS_FUNC(init_module)
 {
     FARGS_INIT(init_module);
 
-    bpf_probe_read(event->_args.a0, sizeof(event->_args.a0), init_module->umod);
-    memcpy(event->_args.a1, &init_module->len, sizeof(init_module->len));
-    bpf_probe_read(event->_args.a2, sizeof(event->_args.a2), init_module->uargs);
+    bpf_probe_read(EVENT_ARG0(event), sizeof(EVENT_ARG0(event)), init_module->umod);
+    memcpy(EVENT_ARG1(event), &init_module->len, sizeof(init_module->len));
+    bpf_probe_read(EVENT_ARG2(event), sizeof(EVENT_ARG2(event)), init_module->uargs);
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2588,9 +2225,9 @@ FARGS_FUNC(seccomp)
 {
     FARGS_INIT(seccomp);
 
-    memcpy(event->_args.a0, &seccomp->op, sizeof(seccomp->op));
-    memcpy(event->_args.a1, &seccomp->flags, sizeof(seccomp->flags));
-    bpf_probe_read(event->_args.a2, sizeof(event->_args.a2), (void *)seccomp->uargs);
+    memcpy(EVENT_ARG0(event), &seccomp->op, sizeof(seccomp->op));
+    memcpy(EVENT_ARG1(event), &seccomp->flags, sizeof(seccomp->flags));
+    bpf_probe_read(EVENT_ARG2(event), sizeof(EVENT_ARG2(event)), (void *)seccomp->uargs);
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2599,8 +2236,8 @@ FARGS_FUNC(sethostname)
 {
     FARGS_INIT(sethostname);
 
-    bpf_probe_read(event->_args.a0, sizeof(event->_args.a0), (void *)sethostname->name);
-    memcpy(event->_args.a1, &sethostname->len, sizeof(sethostname->len));
+    bpf_probe_read(EVENT_ARG0(event), sizeof(EVENT_ARG0(event)), (void *)sethostname->name);
+    memcpy(EVENT_ARG1(event), &sethostname->len, sizeof(sethostname->len));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2609,11 +2246,11 @@ FARGS_FUNC(clone)
 {
     FARGS_INIT(clone);
 
-    memcpy(event->_args.a0, &clone->flags, sizeof(clone->flags));
-    memcpy(event->_args.a1, &clone->newsp, sizeof(clone->newsp));
-    bpf_probe_read(event->_args.a2, sizeof(event->_args.a2), (void *)clone->parent_tidptr);
-    bpf_probe_read(event->_args.a3, sizeof(event->_args.a3), (void *)clone->child_tidptr);
-    memcpy(event->_args.a4, &clone->tls, sizeof(clone->tls));
+    memcpy(EVENT_ARG0(event), &clone->flags, sizeof(clone->flags));
+    memcpy(EVENT_ARG1(event), &clone->newsp, sizeof(clone->newsp));
+    bpf_probe_read(EVENT_ARG2(event), sizeof(EVENT_ARG2(event)), (void *)clone->parent_tidptr);
+    bpf_probe_read(EVENT_ARG3(event), sizeof(EVENT_ARG3(event)), (void *)clone->child_tidptr);
+    memcpy(EVENT_ARG4(event), &clone->tls, sizeof(clone->tls));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2622,9 +2259,9 @@ FARGS_FUNC(read)
 {
     FARGS_INIT(read);
 
-    memcpy(event->_args.a0, &read->fd, sizeof(read->fd));
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), (void *)read->buf);
-    memcpy(event->_args.a2, &read->count, sizeof(read->count));
+    memcpy(EVENT_ARG0(event), &read->fd, sizeof(read->fd));
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), (void *)read->buf);
+    memcpy(EVENT_ARG2(event), &read->count, sizeof(read->count));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2633,9 +2270,9 @@ FARGS_FUNC(write)
 {
     FARGS_INIT(write);
 
-    memcpy(event->_args.a0, &write->fd, sizeof(write->fd));
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), (void *)write->buf);
-    memcpy(event->_args.a2, &write->count, sizeof(write->count));
+    memcpy(EVENT_ARG0(event), &write->fd, sizeof(write->fd));
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), (void *)write->buf);
+    memcpy(EVENT_ARG2(event), &write->count, sizeof(write->count));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2644,9 +2281,9 @@ FARGS_FUNC(ioctl)
 {
     FARGS_INIT(ioctl);
 
-    memcpy(event->_args.a0, &ioctl->fd, sizeof(ioctl->fd));
-    memcpy(event->_args.a1, &ioctl->cmd, sizeof(ioctl->cmd));
-    bpf_probe_read(event->_args.a2, sizeof(event->_args.a2), (void *)ioctl->arg);
+    memcpy(EVENT_ARG0(event), &ioctl->fd, sizeof(ioctl->fd));
+    memcpy(EVENT_ARG1(event), &ioctl->cmd, sizeof(ioctl->cmd));
+    bpf_probe_read(EVENT_ARG2(event), sizeof(EVENT_ARG2(event)), (void *)ioctl->arg);
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2655,8 +2292,8 @@ FARGS_FUNC(rename)
 {
     FARGS_INIT(rename);
 
-    bpf_probe_read(event->_args.a0, sizeof(event->_args.a0), (void *)rename->oldname);
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), (void *)rename->newname);
+    bpf_probe_read(EVENT_ARG0(event), sizeof(EVENT_ARG0(event)), (void *)rename->oldname);
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), (void *)rename->newname);
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2665,10 +2302,10 @@ FARGS_FUNC(timerfd_settime)
 {
     FARGS_INIT(timerfd_settime);
 
-    memcpy(event->_args.a0, &timerfd_settime->ufd, sizeof(timerfd_settime->ufd));
-    memcpy(event->_args.a1, &timerfd_settime->flags, sizeof(timerfd_settime->flags));
-    bpf_probe_read(event->_args.a2, sizeof(event->_args.a2), (void *)timerfd_settime->utmr);
-    bpf_probe_read(event->_args.a3, sizeof(event->_args.a3), (void *)timerfd_settime->otmr);
+    memcpy(EVENT_ARG0(event), &timerfd_settime->ufd, sizeof(timerfd_settime->ufd));
+    memcpy(EVENT_ARG1(event), &timerfd_settime->flags, sizeof(timerfd_settime->flags));
+    bpf_probe_read(EVENT_ARG2(event), sizeof(EVENT_ARG2(event)), (void *)timerfd_settime->utmr);
+    bpf_probe_read(EVENT_ARG3(event), sizeof(EVENT_ARG3(event)), (void *)timerfd_settime->otmr);
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2677,8 +2314,8 @@ FARGS_FUNC(timerfd_create)
 {
     FARGS_INIT(timerfd_create);
 
-    memcpy(event->_args.a0, &timerfd_create->clockid, sizeof(timerfd_create->clockid));
-    memcpy(event->_args.a1, &timerfd_create->flags, sizeof(timerfd_create->flags));
+    memcpy(EVENT_ARG0(event), &timerfd_create->clockid, sizeof(timerfd_create->clockid));
+    memcpy(EVENT_ARG1(event), &timerfd_create->flags, sizeof(timerfd_create->flags));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2687,19 +2324,20 @@ FARGS_FUNC(mincore)
 {
     FARGS_INIT(mincore);
 
-    memcpy(event->_args.a0, &mincore->start, sizeof(mincore->start));
-    memcpy(event->_args.a1, &mincore->len, sizeof(mincore->len));
-    bpf_probe_read(event->_args.a2, sizeof(event->_args.a2), (void *)mincore->vec);
+    memcpy(EVENT_ARG0(event), &mincore->start, sizeof(mincore->start));
+    memcpy(EVENT_ARG1(event), &mincore->len, sizeof(mincore->len));
+    bpf_probe_read(EVENT_ARG2(event), sizeof(EVENT_ARG2(event)), (void *)mincore->vec);
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
+
 
 FARGS_FUNC(nanosleep)
 {
     FARGS_INIT(nanosleep);
 
-    bpf_probe_read(event->_args.a0, sizeof(event->_args.a0), (void *)nanosleep->rqtp);
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), (void *)nanosleep->rmtp);
+    bpf_probe_read(EVENT_ARG0(event), sizeof(EVENT_ARG0(event)), (void *)nanosleep->rqtp);
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), (void *)nanosleep->rmtp);
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2708,10 +2346,10 @@ FARGS_FUNC(rt_sigaction)
 {
     FARGS_INIT(rt_sigaction);
 
-    memcpy(event->_args.a0, &rt_sigaction->sig, sizeof(rt_sigaction->sig));
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), (void *)rt_sigaction->act);
-    bpf_probe_read(event->_args.a2, sizeof(event->_args.a2), (void *)rt_sigaction->oact);
-    memcpy(event->_args.a3, &rt_sigaction->sigsetsize, sizeof(rt_sigaction->sigsetsize));
+    memcpy(EVENT_ARG0(event), &rt_sigaction->sig, sizeof(rt_sigaction->sig));
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), (void *)rt_sigaction->act);
+    bpf_probe_read(EVENT_ARG2(event), sizeof(EVENT_ARG2(event)), (void *)rt_sigaction->oact);
+    memcpy(EVENT_ARG3(event), &rt_sigaction->sigsetsize, sizeof(rt_sigaction->sigsetsize));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2720,11 +2358,11 @@ FARGS_FUNC(futex)
 {
     FARGS_INIT(futex);
 
-    memcpy(event->_args.a0, &futex->uaddr, sizeof(futex->uaddr));
-    memcpy(event->_args.a1, &futex->op, sizeof(futex->op));
-    memcpy(event->_args.a2, &futex->val, sizeof(futex->val));
-    memcpy(event->_args.a3, &futex->utime, sizeof(futex->utime));
-    memcpy(event->_args.a4, &futex->uaddr2, sizeof(futex->uaddr2));
+    memcpy(EVENT_ARG0(event), &futex->uaddr, sizeof(futex->uaddr));
+    memcpy(EVENT_ARG1(event), &futex->op, sizeof(futex->op));
+    memcpy(EVENT_ARG2(event), &futex->val, sizeof(futex->val));
+    memcpy(EVENT_ARG3(event), &futex->utime, sizeof(futex->utime));
+    memcpy(EVENT_ARG4(event), &futex->uaddr2, sizeof(futex->uaddr2));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2733,11 +2371,11 @@ FARGS_FUNC(select)
 {
     FARGS_INIT(select);
 
-    memcpy(event->_args.a0, &select->n, sizeof(select->n));
-    memcpy(event->_args.a1, &select->inp, sizeof(select->inp));
-    memcpy(event->_args.a2, &select->outp, sizeof(select->outp));
-    memcpy(event->_args.a3, &select->exp, sizeof(select->exp));
-    memcpy(event->_args.a4, &select->tvp, sizeof(select->tvp));
+    memcpy(EVENT_ARG0(event), &select->n, sizeof(select->n));
+    memcpy(EVENT_ARG1(event), &select->inp, sizeof(select->inp));
+    memcpy(EVENT_ARG2(event), &select->outp, sizeof(select->outp));
+    memcpy(EVENT_ARG3(event), &select->exp, sizeof(select->exp));
+    memcpy(EVENT_ARG4(event), &select->tvp, sizeof(select->tvp));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2753,7 +2391,7 @@ FARGS_FUNC(exit)
 {
     FARGS_INIT(exit);
 
-    memcpy(event->_args.a0, &exit->error_code, sizeof(exit->error_code));
+    memcpy(EVENT_ARG0(event), &exit->error_code, sizeof(exit->error_code));
 
     return FARGS_COMMON_LTZERO_ERROR;
 }
@@ -2935,11 +2573,11 @@ sysk__exit(struct __args * ctx)
         FARGS_CALL(select);
         FARGS_CALL(exit);
         default:
-            event->_args.a0[0] = '\0';
-            event->_args.a1[0] = '\0';
-            event->_args.a2[0] = '\0';
-            event->_args.a3[0] = '\0';
-            event->_args.a4[0] = '\0';
+            EVENT_ARG0(event)[0] = '\0';
+            EVENT_ARG1(event)[0] = '\0';
+            EVENT_ARG2(event)[0] = '\0';
+            EVENT_ARG3(event)[0] = '\0';
+            EVENT_ARG4(event)[0] = '\0';
             sysk__fill_default_nzeroret_args(&ctx->on_exit);
             break;
     }     /* switch */
@@ -2976,11 +2614,11 @@ sysk__syscalls_execve(struct __args * ctx)
 
     event->entr_usec = event->exit_usec = bpf_ktime_get_ns();
 
-    bpf_probe_read(event->_args.a0, sizeof(event->_args.a0), (void *)ctx->execve.filename);
-    bpf_probe_read(event->_args.a1, sizeof(event->_args.a1), _(ctx->execve.argv[1]));
-    bpf_probe_read(event->_args.a2, sizeof(event->_args.a2), _(ctx->execve.argv[2]));
-    bpf_probe_read(event->_args.a3, sizeof(event->_args.a3), _(ctx->execve.argv[3]));
-    bpf_probe_read(event->_args.a4, sizeof(event->_args.a4), _(ctx->execve.argv[4]));
+    bpf_probe_read(EVENT_ARG0(event), sizeof(EVENT_ARG0(event)), (void *)ctx->execve.filename);
+    bpf_probe_read(EVENT_ARG1(event), sizeof(EVENT_ARG1(event)), _(ctx->execve.argv[1]));
+    bpf_probe_read(EVENT_ARG2(event), sizeof(EVENT_ARG2(event)), _(ctx->execve.argv[2]));
+    bpf_probe_read(EVENT_ARG3(event), sizeof(EVENT_ARG3(event)), _(ctx->execve.argv[3]));
+    bpf_probe_read(EVENT_ARG4(event), sizeof(EVENT_ARG4(event)), _(ctx->execve.argv[4]));
 
     bpf_perf_event_output(ctx, &sk_perf_output,
             BPF_F_CURRENT_CPU, event, sizeof(struct sk_event));

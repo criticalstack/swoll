@@ -17,16 +17,16 @@ import (
 	"github.com/criticalstack/swoll/internal/pkg/hub"
 	"github.com/criticalstack/swoll/pkg/event"
 	"github.com/criticalstack/swoll/pkg/kernel/metrics"
-	"github.com/criticalstack/swoll/pkg/podmon"
 	"github.com/criticalstack/swoll/pkg/syscalls"
+	"github.com/criticalstack/swoll/pkg/topology"
 	"github.com/criticalstack/swoll/pkg/types"
 	"github.com/go-echarts/go-echarts/charts"
+	uuid "github.com/google/uuid"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	uuid "github.com/satori/go.uuid"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -341,7 +341,7 @@ func createJobHandler(ctx context.Context, hb *hub.Hub) func(http.ResponseWriter
 			jobid = jid[0]
 		} else {
 			// otherweise, just give us a random-id to return
-			jobid = uuid.NewV4().String()
+			jobid = uuid.New().String()
 		}
 
 		if ns == "" {
@@ -426,7 +426,7 @@ func deleteJobHandler(ctx context.Context, hub *hub.Hub) func(http.ResponseWrite
 // Metrics is a controlling structure for generating the charts from metrics
 type Metrics struct {
 	handle *metrics.Handler
-	pm     *podmon.PodMon
+	topo   *topology.Topology
 }
 
 type metricOrderKey int
@@ -469,6 +469,7 @@ func (m *Metrics) parseOrder(order string) []metricOrderKey {
 }
 
 type wordClouds struct {
+	mu sync.Mutex
 	*Metrics
 	Errno     map[string]interface{} `json:"errno,omitempty"`
 	Class     map[string]interface{} `json:"class,omitempty"`
@@ -508,7 +509,7 @@ func (w *wordClouds) updateNamespace(in *metrics.Metric) {
 	}
 
 	count := in.Count()
-	ctr, err := w.pm.Resolve(podmon.ResolverContext(in))
+	ctr, err := w.topo.LookupContainer(context.TODO(), in.PidNamespace())
 	if err != nil {
 		return
 	}
@@ -548,6 +549,9 @@ func (w *wordClouds) updateMetric(in *metrics.Metric) {
 }
 
 func (w *wordClouds) updateMetrics(in metrics.Metrics) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	for _, m := range in {
 		w.updateMetric(&m)
 	}
@@ -688,7 +692,7 @@ func (m *Metrics) sankey(ns, ordString string) *charts.Sankey {
 	for _, metricdata := range m.handle.QueryAll() {
 		// attempt to "resolve" the raw kernel namespace to kube container in
 		// which it originated.
-		ctr, err := m.pm.Resolve(podmon.ResolverContext(metricdata))
+		ctr, err := m.topo.LookupContainer(context.TODO(), metricdata.PidNamespace())
 		if err != nil {
 			// ignore kernel-namespace -> container resolution errors
 			continue
@@ -764,7 +768,7 @@ func runServer(cmd *cobra.Command, args []string) {
 	}
 
 	router := mux.NewRouter().StrictSlash(true)
-	handler := handlers.LoggingHandler(os.Stdout, handlers.CompressHandler(router))
+	handler := handlers.LoggingHandler(os.Stdout, router)
 	server := &http.Server{
 		Addr:    laddr,
 		Handler: handler,
@@ -776,11 +780,24 @@ func runServer(cmd *cobra.Command, args []string) {
 	}
 
 	ctx := context.Background()
+	// process with k8s support using a Kubernetes Observer for the
+	// Topology API:
+	topo, err := topology.NewKubernetes(
+		topology.WithKubernetesCRI(crisock),
+		topology.WithKubernetesConfig(kconfig),
+		// we use an empty label match here since we pretty dumb and only
+		// use this as our resolver context for incoming messages
+		topology.WithKubernetesLabelSelector("swoll!=false"),
+		topology.WithKubernetesProcRoot(altroot))
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	hb, err := hub.NewHub(&hub.Config{
 		AltRoot:     altroot,
 		BPFObject:   bpf,
 		CRIEndpoint: crisock,
-		K8SEndpoint: kconfig})
+		K8SEndpoint: kconfig}, topo)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -811,10 +828,10 @@ func runServer(cmd *cobra.Command, args []string) {
 	if !noMetrics {
 		// Create a new metrics handler based off of our probe's module
 		metricsHdl := metrics.NewHandler(hb.Probe().Module())
-		mhandler := &Metrics{metricsHdl, hb.Podmon()}
+		mhandler := &Metrics{metricsHdl, hb.Topology()}
 		wordcloud := newWordClouds(mhandler)
 
-		prometheus.MustRegister(newPrometheusWorker(metricsHdl, hb.Podmon()))
+		prometheus.MustRegister(newPrometheusWorker(metricsHdl, hb.Topology()))
 		router.Handle("/metrics", promhttp.Handler())
 
 		chartsRouter := router.PathPrefix("/metrics/charts").Subrouter()

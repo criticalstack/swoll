@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
     name: swoll-probe
-    namespace: syswall
+    namespace: swoll
 spec:
   selector:
     matchLabels:
@@ -12,7 +12,7 @@ spec:
       name: swoll-probe
       labels:
         app: "swoll-probe"
-        syswall: "false"
+        swoll: "false"
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9095"

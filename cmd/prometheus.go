@@ -1,40 +1,41 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/criticalstack/swoll/pkg/kernel/metrics"
-	"github.com/criticalstack/swoll/pkg/podmon"
 	"github.com/criticalstack/swoll/pkg/syscalls"
+	"github.com/criticalstack/swoll/pkg/topology"
 	"github.com/criticalstack/swoll/pkg/types"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 type prometheusWorker struct {
 	handler   *metrics.Handler
-	podMon    *podmon.PodMon
+	topo      *topology.Topology
 	total     *prometheus.Desc
 	timeSpent *prometheus.Desc
 	syscalls  *syscalls.Syscalls
 }
 
-func newPrometheusWorker(handler *metrics.Handler, pmon *podmon.PodMon) *prometheusWorker {
+func newPrometheusWorker(handler *metrics.Handler, topo *topology.Topology) *prometheusWorker {
 	labels := []string{"syscall", "pod", "container", "namespace", "class", "group", "err", "kns"}
 
 	syscalls, _ := syscalls.New()
 
 	return &prometheusWorker{
 		handler:  handler,
-		podMon:   pmon,
+		topo:     topo,
 		syscalls: syscalls,
 		total: prometheus.NewDesc(
-			prometheus.BuildFQName("syswall_node_metrics", "", "syscall_count"),
+			prometheus.BuildFQName("swoll_node_metrics", "", "syscall_count"),
 			"The total count for a given syscall.",
 			labels,
 			nil,
 		),
 		timeSpent: prometheus.NewDesc(
-			prometheus.BuildFQName("syswall_node_metrics", "", "syscall_time"),
+			prometheus.BuildFQName("swoll_node_metrics", "", "syscall_time"),
 			"The time in nanoseconds spent executing a given syscall.",
 			labels,
 			nil,
@@ -48,14 +49,14 @@ func (w prometheusWorker) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (w prometheusWorker) Collect(ch chan<- prometheus.Metric) {
-	if w.podMon == nil {
-		// if we don't have a valid podmon context right now, just discard.
+	if w.topo == nil {
+		// if we don't have a valid topology context right now, just discard.
 		// TODO[lz]: should we do non-resolved stats here?
 		return
 	}
 
 	for _, metric := range w.handler.QueryAll() {
-		container, err := w.podMon.Resolve(podmon.ResolverContext(metric))
+		container, err := w.topo.LookupContainer(context.TODO(), metric.PidNamespace())
 		if err != nil {
 			continue
 		}

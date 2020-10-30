@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "swoll-server.fullname" . }}
+  namespace: "{{ .Release.Namespace }}" 
+spec:
+  selector:
+    app: {{ template "toplevel.name" . }} 
+  type: NodePort
+  ports:
+    - port: {{ .Values.listenPort }}
+      targetPort: {{ .Values.listenPort }} 
+      nodePort: {{ .Values.nodePort }}
