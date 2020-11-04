@@ -180,11 +180,11 @@ var cmdTrace = &cobra.Command{
 					fmt.Printf("(%s)%s=%v", arg.Type, italic(arg.Name), bgblack(white(arg.Value)))
 
 					if x < len(args)-1 {
-						fmt.Printf(", ")
+						fmt.Print(", ")
 					}
 				}
 
-				fmt.Printf(")\n")
+				fmt.Print(")")
 			case "json":
 				j, _ := json.MarshalIndent(ev, "", " ")
 
