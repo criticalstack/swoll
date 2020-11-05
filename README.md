@@ -322,6 +322,15 @@ func main() {
 }
 ```
 
+This is pretty much the same as running:
+
+```
+swoll trace --kubeconfig ~/.kube/config \
+--altroot /proc/3796667/root \
+--cri '/proc/3796667/root/run/containerd/containerd.sock' \
+--syscalls execve
+```
+
 
 ## swoll-trace
 ## swoll-server
