@@ -34,6 +34,7 @@ echarts) can be seen at the URI `/metrics/charts`.
 
 **Example charts output**
 ![Charts](media/charts-ss.png)
+_The above Sankey diagram displays the distribution of system calls in an interesting™ manner._
 
 
 **Prometheus query examples** 
