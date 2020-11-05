@@ -183,7 +183,7 @@ var cmdTrace = &cobra.Command{
 					}
 				}
 
-				fmt.Print(")")
+				fmt.Println(")")
 			case "json":
 				j, _ := json.MarshalIndent(ev, "", " ")
 
@@ -216,7 +216,7 @@ var cmdTrace = &cobra.Command{
 				log.Fatal(err)
 			}
 
-			if err := setOffsetsFromArgs(hub.Probe(), cmd, args); err != nil {
+			if err := SetOffsetsFromArgs(hub.Probe(), cmd, args); err != nil {
 				log.Fatal(err)
 			}
 
@@ -244,7 +244,7 @@ var cmdTrace = &cobra.Command{
 				log.Fatal(err)
 			}
 
-			if err := setOffsetsFromArgs(probe, cmd, args); err != nil {
+			if err := SetOffsetsFromArgs(probe, cmd, args); err != nil {
 				log.Fatal(err)
 			}
 

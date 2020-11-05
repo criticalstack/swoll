@@ -190,6 +190,138 @@ $ kubectl logs -l sw-job=trace-nginx-hosts -n swoll | head -n 1 | jq .
 _A sweet gif showing commands being run... So 2020_
 
 
+---
+
+## Using the API to trace.
+
+### Local, without Kubernetes resolution
+
+In this example we display how to utilize the `swoll` Golang API to initiate a
+local trace of the `execve` call without Kubernetes locally. This assumes you
+have compiled the bpf object and it is located in `internal/bpf/probe.o`.
+
+```go
+package main
+
+import (
+    "bytes"
+    "context"
+    "fmt"
+    "io/ioutil"
+
+    "github.com/criticalstack/swoll/pkg/event"
+    "github.com/criticalstack/swoll/pkg/event/call"
+    "github.com/criticalstack/swoll/pkg/event/reader"
+    "github.com/criticalstack/swoll/pkg/kernel"
+    "github.com/criticalstack/swoll/pkg/kernel/filter"
+)
+
+func main() {
+    // read local bpf object
+    bpf, _ := ioutil.ReadFile("internal/bpf/probe.o")
+    // create a probe object
+    probe, _ := kernel.NewProbe(bytes.NewReader(bpf), nil)
+
+    // initialize the underlying bpf tables
+    probe.InitProbe()
+
+    // create a new kernel-filter bound to the current bpf probe
+    filt, _ := filter.NewFilter(probe.Module())
+    // inform the probe we are interested in all execve
+    filt.AddSyscall("execve", -1)
+
+    // create an event reader for the probe
+    reader := reader.NewEventReader(probe)
+    // run the probe
+    go reader.Run(context.Background())
+
+    // where to store decoded events
+    decoded := new(event.TraceEvent)
+
+    for {
+        // read a single message from the event queue from the kernel
+        msg := <-reader.Read()
+        // convert the raw data from the kernel into a proper TraceEvent object
+        decoded.Ingest(msg)
+
+        // fetch the arguments associated with the call
+        args := decoded.Argv.(call.Function).Arguments()
+
+        fmt.Printf("comm:%-15s pid:%-8d %s(%s)\n", decoded.Comm, decoded.Pid, decoded.Syscall, args)
+    }
+}
+```
+
+### Local, With Kubernetes
+
+The easiest way to trace kubernetes is to utilize the `Topology` API which
+consists of an `Observer`, and a `Hub`. A `Hub` is an abstraction around kernel
+filtering based on events sourced from the `Observer`. In this case, we will
+utilize a Kubernetes `Observer` which emits container-ready events for any POD
+events.
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "io/ioutil"
+    "os"
+    "path/filepath"
+
+    "github.com/criticalstack/swoll/api/v1alpha1"
+    "github.com/criticalstack/swoll/internal/pkg/hub"
+    "github.com/criticalstack/swoll/pkg/event"
+    "github.com/criticalstack/swoll/pkg/event/call"
+    "github.com/criticalstack/swoll/pkg/topology"
+)
+
+func main() {
+    // read local bpf object
+    bpf, _ := ioutil.ReadFile("internal/bpf/probe.o")
+    kConfig := os.Getenv("HOME") + "/.kube/config"
+    rootDir := "/proc/3796667/root"
+    criSock := "/run/containerd/containerd.sock"
+
+    kTopo, _ := topology.NewKubernetes(
+        topology.WithKubernetesCRI(filepath.Join(rootDir, criSock)),
+        topology.WithKubernetesConfig(kConfig),
+        topology.WithKubernetesProcRoot(rootDir))
+
+    kHub, _ := hub.NewHub(&hub.Config{
+        AltRoot:     rootDir,
+        BPFObject:   bpf,
+        CRIEndpoint: filepath.Join(rootDir, criSock),
+        K8SEndpoint: kConfig}, kTopo)
+
+    go kHub.Run(context.Background())
+
+    trace := &v1alpha1.Trace{
+        Spec: v1alpha1.TraceSpec{
+            Syscalls: []string{"execve"},
+        },
+        Status: v1alpha1.TraceStatus{
+            JobID: "trace-nginx",
+        },
+    }
+
+    go kHub.Run(context.Background())
+    go kHub.RunTrace(trace)
+
+    kHub.AttachTrace(trace, func(id string, ev *event.TraceEvent) {
+        args := ev.Argv.(call.Function).Arguments()
+
+        fmt.Printf("container=%s pod=%s namespace=%s comm:%-15s pid:%-8d %s(%s)\n",
+            ev.Container.Name, ev.Container.Pod, ev.Container.Namespace,
+            ev.Comm, ev.Pid, ev.Syscall, args)
+    })
+
+    select {}
+
+}
+```
+
 
 ## swoll-trace
 ## swoll-server

@@ -802,7 +802,7 @@ func runServer(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
-	if err := setOffsetsFromArgs(hb.Probe(), cmd, args); err != nil {
+	if err := SetOffsetsFromArgs(hb.Probe(), cmd, args); err != nil {
 		log.Fatal(err)
 	}
 

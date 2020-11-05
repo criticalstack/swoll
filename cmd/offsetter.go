@@ -252,7 +252,7 @@ func nsproxyLikelyOffset(symfile, corefile string, functions []string) string {
 	return addr
 }
 
-func setOffsetsFromArgs(probe *kernel.Probe, cmd *cobra.Command, args []string) error {
+func SetOffsetsFromArgs(probe *kernel.Probe, cmd *cobra.Command, args []string) error {
 	detect, err := cmd.Flags().GetBool("detect-offsets")
 	if err != nil {
 		return err
