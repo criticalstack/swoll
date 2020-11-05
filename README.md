@@ -27,17 +27,24 @@ container, running in every pod is accounted for. One can query for the count of
 calls to the function `openat` made by a container in the pod `coredns`, within the 
 `kube-system` namespace which resulted in a "No such file or directory" error (ENOENT).
 
-**Example**
+By default, this data is exported in `Prometheus` format on each running
+instance at the URI `/metrics`. More detailed chart examples (powered by
+echarts) can be seen at the URI `/metrics/charts`.
 
+
+**Example charts output**
+![Charts](media/charts-ss.png)
+
+
+**Prometheus query examples** 
 ```sh
-$ promtool query instant http://172.19.0.3:30002 ' 
+$ promtool query instant https://prometheus.local '
   sort_desc(
    sum(
     swoll_node_metrics_syscall_count{
      namespace="kube-system"
     }) by (err))'
 
-{err="OK"}              => 6017679
 {err="ETIMEDOUT"}       => 745430
 {err="EAGAIN"}          => 254506
 {err="EINPROGRESS"}     => 2217
@@ -49,7 +56,7 @@ $ promtool query instant http://172.19.0.3:30002 '
 _Total count of syscalls grouped by the return-status originating from the kubernetes namespace `kube-system`_
 
 ```sh
-$ promtool query instant http://172.19.0.3:30002 ' 
+$ promtool query instant https://prometheus.local '
   sort_desc(
    sum(
     swoll_node_metrics_syscall_count{
@@ -67,7 +74,7 @@ $ promtool query instant http://172.19.0.3:30002 '
 _Count all calls to the function `sys_openat` grouped by kubernetes Pod, and Namespace_
 
 ```sh
-$ promtool query instant http://172.19.0.3:30002 ' 
+$ promtool query instant https://prometheus.local '
   sort_desc(
    avg by (container, pod, namespace, syscall) (
     rate(
@@ -84,7 +91,8 @@ $ promtool query instant http://172.19.0.3:30002 '
 {container="operator", namespace="kube-system", pod="cilium-operator", syscall="sys_read"}      => 1.0
 {container="agent",    namespace="kube-system", pod="cilium-shskf",    syscall="sys_futex"}     => 1.0
 ```
-_Query the relative change for the rate of calls that incurred an error over the last 5 minutes compared to the previous 5 minutes grouped by container, Pod, namespace, and function_
+_Query the relative change in the rate of calls that incurred an error compared to the previous 5 minutes grouped by container, pod, namespace, and syscall_ 
+
 
 
 While metrics by themselves are great and all, `swoll` also provides a
