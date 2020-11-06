@@ -284,19 +284,23 @@ func main() {
     rootDir := "/proc/3796667/root"
     criSock := "/run/containerd/containerd.sock"
 
+    // create a kubernetes observer
     kTopo, _ := topology.NewKubernetes(
         topology.WithKubernetesCRI(filepath.Join(rootDir, criSock)),
         topology.WithKubernetesConfig(kConfig),
         topology.WithKubernetesProcRoot(rootDir))
 
+    // initialize an event hub and bind it to the kubernetes observer
     kHub, _ := hub.NewHub(&hub.Config{
         AltRoot:     rootDir,
         BPFObject:   bpf,
         CRIEndpoint: filepath.Join(rootDir, criSock),
         K8SEndpoint: kConfig}, kTopo)
 
+    // run the event hub
     go kHub.Run(context.Background())
 
+    // create a trace specification to monitor execve on all pods
     trace := &v1alpha1.Trace{
         Spec: v1alpha1.TraceSpec{
             Syscalls: []string{"execve"},
@@ -306,9 +310,10 @@ func main() {
         },
     }
 
-    go kHub.Run(context.Background())
+    // run the trace specification on the hub
     go kHub.RunTrace(trace)
 
+    // attach to the running trace and print out stuff
     kHub.AttachTrace(trace, func(id string, ev *event.TraceEvent) {
         args := ev.Argv.(call.Function).Arguments()
 
@@ -324,13 +329,85 @@ func main() {
 
 This is pretty much the same as running:
 
-```
-swoll trace --kubeconfig ~/.kube/config \
---altroot /proc/3796667/root \
---cri '/proc/3796667/root/run/containerd/containerd.sock' \
---syscalls execve
+```sh
+swoll trace \
+    --kubeconfig ~/.kube/config                                  \
+    --altroot  /proc/3796667/root                                \
+    --cri      /proc/3796667/root/run/containerd/containerd.sock \
+    --syscalls execve
 ```
 
+
+### Remote using the Client API
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+
+	"github.com/criticalstack/swoll/api/v1alpha1"
+	"github.com/criticalstack/swoll/pkg/client"
+)
+
+func main() {
+    // create the trace specification
+	spec := &v1alpha1.TraceSpec{
+		Syscalls: []string{"execve"},
+	}
+
+    // connect to a probe running on 172.19.0.3:9095 with SSL disabled
+	ep := client.NewEndpoint("172.19.0.3", 9095, false)
+	ctx := context.Background()
+    // channel where events are written to
+	outch := make(chan *client.StreamMessage)
+    // stop all stuff channel
+	stpch := make(chan bool)
+    // signal channel
+	sigch := make(chan os.Signal, 1)
+	signal.Notify(sigch, os.Interrupt, syscall.SIGTERM)
+
+    // create a trace with the name of "trace-stuff" inside the namespace
+    // "kube-system"
+	tr, err := ep.CreateTrace(ctx, "trace-stuff", "kube-system", spec)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var wg sync.WaitGroup
+
+	go func() {
+		wg.Add(1)
+        // Blocking reader 
+		ep.ReadTraceJob(ctx, tr.Status.JobID, outch, stpch)
+        // If ReadTraceJob returns, let's just delete this current job from the
+        // server
+		ep.DeleteTraceJob(ctx, tr.Status.JobID)
+		wg.Done()
+	}()
+
+Loop:
+	for {
+		select {
+		case ev := <-outch:
+			fmt.Println(ev)
+		case <-sigch:
+			break Loop
+		}
+	}
+
+    // notify ReadTraceJob to halt.
+	stpch <- true
+    // wait for the job to be deleted
+	wg.Wait()
+}
+```
 
 ## swoll-trace
 ## swoll-server
