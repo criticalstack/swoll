@@ -1,6 +1,6 @@
 [![Build Status](https://drone.cstack.co/api/badges/criticalstack/swoll/status.svg)](https://drone.cstack.co/criticalstack/swoll)
 
-![logo](media/logo.png) 
+![logo](media/swoll-banner.png)
 
 # Introduction
 
