@@ -77,7 +77,7 @@ CONTROLLER_GEN=$(shell which controller-gen)
 endif
 
 build-chart:
-	kustomize build config/crd > chart/crds/crds.yaml
+	kustomize build config/crd > helm/templates/crds/crds.yaml 
 
 ##@ Testing
 
