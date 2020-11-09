@@ -43,14 +43,13 @@ func main() {
 		}
 
 		bold := color.New(color.Bold).SprintFunc()
-		italic := color.New(color.Italic).SprintFunc()
 		cyan := color.New(color.FgCyan).SprintFunc()
 		green := color.New(color.FgGreen).SprintFunc()
 
-		fmt.Printf("%35s: [%8s] (%11s) %s(", bold(green(event.Data.Container.FQDN())), italic(event.Data.Comm), errno, bold(cyan(fn.CallName())))
+		fmt.Printf("%35s: [%8s] (%11s) %s(", bold(green(event.Data.Container.FQDN())), event.Data.Comm, errno, bold(cyan(fn.CallName())))
 
 		for x, arg := range args {
-			fmt.Printf("(%s)%s=%v", bold(arg.Type), italic(arg.Name), bold(arg.Value))
+			fmt.Printf("(%s)%s=%v", bold(arg.Type), arg.Name, bold(arg.Value))
 
 			if x < len(args)-1 {
 				fmt.Printf(", ")

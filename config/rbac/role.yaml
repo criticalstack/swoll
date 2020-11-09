@@ -33,6 +33,14 @@ rules:
   verbs:
   - get
 - apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - tools.swoll.criticalstack.com
   resources:
   - traces

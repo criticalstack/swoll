@@ -92,6 +92,7 @@ func (r *TraceReconciler) createJobResource(t *v1alpha1.Trace) (*v1jobs.Job, err
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=batch,resources=jobs/status,verbs=get
 // +kubebuilder:rbac:groups="",resources=nodes,verbs=get;watch;list
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
 
 // Reconcile is the main controller loop which deals with messages from kube
 // requesting for traces to be done. If everything goes well, when a new trace

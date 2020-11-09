@@ -291,7 +291,6 @@ var cmdClientCreate = &cobra.Command{
 
 						green := color.New(color.FgGreen).SprintFunc()
 						red := color.New(color.FgRed).SprintFunc()
-						italic := color.New(color.Italic).SprintFunc()
 						bold := color.New(color.Bold).SprintFunc()
 						cyan := color.New(color.FgCyan).SprintFunc()
 						bgblack := color.New(color.BgBlack).SprintFunc()
@@ -307,13 +306,13 @@ var cmdClientCreate = &cobra.Command{
 
 						fmt.Printf("%35s: [%11s] (%11s) %s(",
 							bold(green(ev.Data.Container.FQDN())),
-							italic(ev.Data.Comm), errno,
+							ev.Data.Comm, errno,
 							bold(cyan(fn.CallName())))
 
 						for x, arg := range args {
 							fmt.Printf("(%s)%s=%v",
 								arg.Type,
-								italic(arg.Name),
+								bold(arg.Name),
 								bgblack(white(arg.Value)))
 
 							if x < len(args)-1 {
