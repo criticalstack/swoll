@@ -134,6 +134,13 @@ func (r *TraceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			if err != nil {
 				return ctrl.Result{}, nil
 			}
+
+			t.Status.State = v1alpha1.TraceComplete
+			et := metav1.Now()
+			t.Status.CompletionTime = &et
+
+			log.Info("Setting", "state", t.Status.State)
+
 		}
 
 		controllerutil.RemoveFinalizer(t, finalizerName)
@@ -189,20 +196,22 @@ func (r *TraceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			RequeueAfter: t.Spec.Duration.Duration - 5*time.Second,
 		}, nil
 	case v1alpha1.TraceRunning:
-		if time.Now().Before(t.Status.StartTime.Add(t.Spec.Duration.Duration)) {
-			return ctrl.Result{
-				Requeue:      true,
-				RequeueAfter: 5 * time.Second,
-			}, nil
-		}
+		if t.Spec.Duration.Duration > 0 {
+			if time.Now().Before(t.Status.StartTime.Add(t.Spec.Duration.Duration)) {
+				return ctrl.Result{
+					Requeue:      true,
+					RequeueAfter: 5 * time.Second,
+				}, nil
+			}
 
-		t.Status.State = v1alpha1.TraceComplete
-		et := metav1.Now()
-		t.Status.CompletionTime = &et
+			t.Status.State = v1alpha1.TraceComplete
+			et := metav1.Now()
+			t.Status.CompletionTime = &et
 
-		log.Info("Setting", "state", t.Status.State)
-		if err := r.Update(ctx, t); err != nil {
-			return ctrl.Result{}, err
+			log.Info("Setting", "state", t.Status.State)
+			if err := r.Update(ctx, t); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
 
 		return ctrl.Result{}, nil
