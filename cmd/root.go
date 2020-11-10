@@ -54,5 +54,5 @@ func init() {
 	rootCmd.PersistentFlags().BoolP("version", "V", false, "show version information")
 	rootCmd.PersistentFlags().String("nsproxy-offset", "", "Offset (in hex) of task_struct->nsproxy")
 	rootCmd.PersistentFlags().String("pidns-offset", "", "Offset (in hex) of pid_namespace->ns")
-	rootCmd.PersistentFlags().Bool("detect-offsets", false, "Automatically determine task_struct member offsets")
+	rootCmd.PersistentFlags().Bool("no-detect-offsets", false, "Do not automatically determine task_struct member offsets (uses default offsets)")
 }

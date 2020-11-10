@@ -253,7 +253,7 @@ func nsproxyLikelyOffset(symfile, corefile string, functions []string) string {
 }
 
 func SetOffsetsFromArgs(probe *kernel.Probe, cmd *cobra.Command, args []string) error {
-	detect, err := cmd.Flags().GetBool("detect-offsets")
+	nodetect, err := cmd.Flags().GetBool("no-detect-offsets")
 	if err != nil {
 		return err
 	}
@@ -261,7 +261,7 @@ func SetOffsetsFromArgs(probe *kernel.Probe, cmd *cobra.Command, args []string) 
 	var nsproxyOffset string
 	var pnsCommOffset string
 
-	if detect {
+	if !nodetect {
 		nsproxyOffset = nsproxyLikelyOffset("/proc/kallsyms", "/proc/kcore",
 			[]string{
 				"ipcns_get",

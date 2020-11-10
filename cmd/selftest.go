@@ -34,7 +34,7 @@ func checkMounts() error {
 }
 
 func fixMounts() error {
-	return syscall.Mount("none", "/sys/kernel/debug/tracing", "debugfs", 0, "")
+	return syscall.Mount("none", "/sys/kernel/debug", "debugfs", 0, "")
 }
 
 func getBootConfigFile() (string, error) {
@@ -120,11 +120,11 @@ func runSelfTest(fix bool) error {
 	if err := checkMounts(); err != nil {
 		if fix {
 			if err := fixMounts(); err != nil {
-				return err
+				return errors.Wrap(err, "Couldn't fix mounts")
 			}
 
 			if err := checkMounts(); err != nil {
-				return err
+				return errors.Wrap(err, "Couldn't check mounts")
 			}
 		} else {
 			return err

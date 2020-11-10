@@ -29,7 +29,6 @@ spec:
           - server
           - -r
           - /run/containerd/containerd.sock
-          - --detect-offsets
           name: swoll-probe
           image: 'harbor.cstack.co/criticalstack/swoll:latest'
           imagePullPolicy: Always
