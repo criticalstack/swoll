@@ -1,17 +1,6 @@
-[![Build Status](https://drone.cstack.co/api/badges/criticalstack/swoll/status.svg)](https://drone.cstack.co/criticalstack/swoll)
+Swoll is an experimental suite of applications and APIs for monitoring kernel-level activity on a live Kubernetes cluster, mostly written in the Golang programming language, strewn about with bits and bobs of C and Yaml. 
 
-![logo](media/swoll-banner.png)
-
-# Introduction
-
-Swoll is an experimental suite of applications and APIs for monitoring kernel-level activity on a
-kubernetes cluster; most of which is written in the Golang programming language, strewn about with 
-bits and bobs of C and Yaml. 
-
-Using simple counters and minimal state, Swoll has the ability to report on a
-wide bevy of information pertaining to system calls being made by or from a
-container running inside a Kubernetes cluster. Each individual metric for both
-timing and counting contains the following information:
+Using simple counters and a minimal state, Swoll can report on a wide bevy of information on system calls being made by or from a container running inside a Kubernetes cluster. Each metric for both timing and counting contains the following information:
 
 * Syscall
   - Return Status
@@ -22,20 +11,13 @@ timing and counting contains the following information:
   - Pod
   - Container
 
-Since data is aggregated in this manner, every call, every error, for every
-container, running in every pod is accounted for. One can query for the count of
-calls to the function `openat` made by a container in the pod `coredns`, within the 
-`kube-system` namespace which resulted in a "No such file or directory" error (ENOENT).
+Aggregating data in this manner allows a user to monitor every call and its resulting return status for every container in every Kubernetes Pod. For example, one can query the total count of calls to the function `sys_openat` sourced from a specific container in the pod `coredns` in the namespace `kube-system` that resulted in a "No such file or directory" error.
 
-By default, this data is exported in `Prometheus` format on each running
-instance at the URI `/metrics`. More detailed chart examples (powered by
-echarts) can be seen at the URI `/metrics/charts`.
-
+Metrics are exposed via the URI `/metrics` in `Prometheus` format, along with detailed charting examples (powered by e-charts) at the URI `/metrics/charts`.
 
 **Example charts output**
 ![Charts](media/charts-ss.png)
-_The above Sankey diagram displays the distribution of system calls in an interesting™ manner._
-
+_The above Sankey diagram displays the distribution of system calls in an attractive™ manner._
 
 **Prometheus query examples** 
 ```sh
@@ -54,7 +36,7 @@ $ promtool query instant https://prometheus.local '
 {err="EPROTONOSUPPORT"} => 60
 {err="EINTR"}           => 46
 ```
-_Total count of syscalls grouped by the return-status originating from the kubernetes namespace `kube-system`_
+_Total count of syscalls grouped by the return-status originating from the Kubernetes namespace `kube-system`_
 
 ```sh
 $ promtool query instant https://prometheus.local '
@@ -72,7 +54,7 @@ $ promtool query instant https://prometheus.local '
 {namespace="kube-system", pod="kube-controller-manager-cinder"}   => 191
 {namespace="kube-system", pod="cilium-operator-657978fb5b-cjx72"} => 78
 ```
-_Count all calls to the function `sys_openat` grouped by kubernetes Pod, and Namespace_
+_Count all calls to the function `sys_openat` grouped by Kubernetes Pod, and namespace_
 
 ```sh
 $ promtool query instant https://prometheus.local '
@@ -92,13 +74,13 @@ $ promtool query instant https://prometheus.local '
 {container="operator", namespace="kube-system", pod="cilium-operator", syscall="sys_read"}      => 1.0
 {container="agent",    namespace="kube-system", pod="cilium-shskf",    syscall="sys_futex"}     => 1.0
 ```
-_Query the relative change in the rate of calls that incurred an error compared to the previous 5 minutes grouped by container, pod, namespace, and syscall_ 
+_Query the relative change in the rate of calls that incurred an error compared to the previous 5 minutes grouped by container, Pod, namespace, and syscall_ 
 
 ---
 
 While metrics by themselves are great and all, `swoll` also provides a
-kubernetes-native interface for creating, collecting, and presenting detailed
-realtime logs of system activity. 
+Kubernetes-native interface for creating, collecting, and presenting detailed
+real-time logs of system activity. 
 
 Take the following Trace configuration as an example:
 
@@ -124,13 +106,9 @@ spec:
           status.phase: "Running"
 ```
 
-When applied, `swoll` will start tracing the system-calls `connect`, `accept4`,
-`bind`, `listen`, `execve`, and `openat` for any containers that match the
-pod-label `app=nginx`, and the field-label `status.phase=Running` (match only
-running containers). 
+When applied, `swoll` will start tracing the system-calls `connect`, `accept4`, `bind`, `listen`, `execve`, and `openat` for any containers that match the pod-label `app=nginx`, and the field-label `status.phase=Running` (match only running containers). 
 
-Once started the raw events are written in JSON format and can be seen via
-`kubectl logs`:
+Once started, the raw JSON events are retrieved via `kubectl logs`:
 
 ```sh
 $ kubectl logs -l sw-job=trace-nginx-hosts -n swoll | head -n 1 | jq .
@@ -187,8 +165,7 @@ $ kubectl logs -l sw-job=trace-nginx-hosts -n swoll | head -n 1 | jq .
 ```
 
 ![Running a Trace](media/running-a-trace.gif)
-
-_A sweet gif showing commands being run... So 2020_
+_A sweet gif showing a trace running... So 2020_
 
 
 ---
@@ -197,9 +174,7 @@ _A sweet gif showing commands being run... So 2020_
 
 ### Local, without Kubernetes resolution
 
-In this example we display how to utilize the `swoll` Golang API to initiate a
-local trace of the `execve` call without Kubernetes locally. This assumes you
-have compiled the bpf object and it is located in `internal/bpf/probe.o`.
+In this example, we display how to utilize the `swoll` Golang API to initiate a local trace of the `execve` call without Kubernetes locally.
 
 ```go
 package main
@@ -255,11 +230,7 @@ func main() {
 
 ### Local, With Kubernetes
 
-The easiest way to trace kubernetes is to utilize the `Topology` API which
-consists of an `Observer`, and a `Hub`. A `Hub` is an abstraction around kernel
-filtering based on events sourced from the `Observer`. In this case, we will
-utilize a Kubernetes `Observer` which emits container-ready events for any POD
-events.
+The easiest way to trace Kubernetes is to utilize the `Topology` API, which consists of an `Observer` and a `Hub`. A `Hub` is an abstraction around kernel filtering based on events sourced from the `Observer`. In this case, we will utilize a Kubernetes `Observer` which emits container-ready events for any POD events.
 
 ```go
 package main
@@ -358,24 +329,24 @@ import (
 )
 
 func main() {
-    // create the trace specification
+	// create the trace specification
 	spec := &v1alpha1.TraceSpec{
 		Syscalls: []string{"execve"},
 	}
 
-    // connect to a probe running on 172.19.0.3:9095 with SSL disabled
+	// connect to a probe running on 172.19.0.3:9095 with SSL disabled
 	ep := client.NewEndpoint("172.19.0.3", 9095, false)
 	ctx := context.Background()
-    // channel where events are written to
+	// channel where events are written to
 	outch := make(chan *client.StreamMessage)
-    // stop all stuff channel
+	// stop all stuff channel
 	stpch := make(chan bool)
-    // signal channel
+	// signal channel
 	sigch := make(chan os.Signal, 1)
 	signal.Notify(sigch, os.Interrupt, syscall.SIGTERM)
 
-    // create a trace with the name of "trace-stuff" inside the namespace
-    // "kube-system"
+	// create a trace with the name of "trace-stuff" inside the namespace
+	// "kube-system"
 	tr, err := ep.CreateTrace(ctx, "trace-stuff", "kube-system", spec)
 	if err != nil {
 		log.Fatal(err)
