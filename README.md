@@ -187,6 +187,7 @@ $ kubectl logs -l sw-job=trace-nginx-hosts -n swoll | head -n 1 | jq .
 ```
 
 ![Running a Trace](media/running-a-trace.gif)
+
 _A sweet gif showing commands being run... So 2020_
 
 
