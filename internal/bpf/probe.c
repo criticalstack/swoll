@@ -24,16 +24,16 @@
 #define __PIDTYPE_TGID                 PIDTYPE_MAX + 1
 #endif
 
-#define _(P)                                     \
-    ({                                           \
-        typeof(P) _val;                          \
-        bpf_probe_memset(&_val, 0, sizeof(_val));          \
-        bpf_probe_read(&_val, sizeof(_val), &P); \
-        _val;                                    \
+#define _(P)                                      \
+    ({                                            \
+        typeof(P) _val;                           \
+        bpf_probe_memset(&_val, 0, sizeof(_val)); \
+        bpf_probe_read(&_val, sizeof(_val), &P);  \
+        _val;                                     \
     })
 
 
-#if defined(SC__DEBUG)
+#if defined(SWOLL__DEBUG)
 #define D_(fmt, ...)                                          \
     ({                                                        \
         char _fmt[] = fmt;                                    \
@@ -43,11 +43,11 @@
 #define D_(fmt, ...)
 #endif
 
-#define _(P) ({                                  \
-        typeof(P) _val;                          \
-        bpf_probe_memset(&_val, 0, sizeof(_val));          \
-        bpf_probe_read(&_val, sizeof(_val), &P); \
-        _val;                                    \
+#define _(P)                             ({       \
+        typeof(P) _val;                           \
+        bpf_probe_memset(&_val, 0, sizeof(_val)); \
+        bpf_probe_read(&_val, sizeof(_val), &P);  \
+        _val;                                     \
     })
 
 
@@ -921,16 +921,18 @@ struct swoll_filter_key {
     __u32               key;
 };
 
-/*
- * #define SEC(NAME) __attribute__((section(NAME), used)
- * struct bpf_map_def __attribute__((section("maps/swoll_filter"), swoll_filter =...
- */
+struct swoll_filter_val {
+    __u64 sample_rate;
+    __u64 sample_count;
+};
+
+
 struct bpf_map_def
 SEC("maps/swoll_filter") swoll_filter =
 {
     .type        = BPF_MAP_TYPE_HASH,
     .key_size    = sizeof(struct swoll_filter_key),
-    .value_size  = sizeof(__u8), /* DROP/ALLOW */
+    .value_size  = sizeof(struct swoll_filter_val),
     .max_entries = 65535,
 };
 
@@ -996,16 +998,31 @@ static _inline __u8
 swoll__eval_filter(swoll_filter_type_t type, __u32 ns, __u32 key)
 {
     if (swoll__is_filter_enabled(type)) {
-        struct swoll_filter_key fkey = {
+        struct swoll_filter_key   fkey = {
             .type = type,
             .pad  = 0,
             .ns   = ns,
             .key  = key,
         };
+        struct swoll_filter_val * val = NULL;
 
-        /*D_("type=%u, ns=%u, key=%u\n", type, ns, key); */
+        if ((val = bpf_map_lookup_elem(&swoll_filter, &fkey)) != NULL) {
+            if (val->sample_rate > 0) {
+                val->sample_count++;
 
-        if (bpf_map_lookup_elem(&swoll_filter, &fkey) != NULL) {
+                D_("sampling[N:%u/K:%u]: count=%llu\n",
+                                ns, key, val->sample_count);
+
+                bpf_map_update_elem(&swoll_filter, &fkey, val, BPF_ANY);
+
+                if ((val->sample_count > 1) && (val->sample_count % val->sample_rate)) {
+                    D_("sampling[N:%u/K:%u/T:%d]: dropping...\n", ns, key, type);
+                    return SWOLL_FILTER_DROP;
+                }
+
+                D_("sampling[N:%u/K:%u/T:%d]: permitting...\n", ns, key, type);
+            }
+
             /* if the value was found in the table, and the lookup type is
              * a WHITELIST, then allow this. Otherwise, if the value was found
              * in the table, but the type is of BLACKLIST, then drop it.

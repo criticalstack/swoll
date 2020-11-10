@@ -21,5 +21,3 @@ FROM alpine:3.12
 
 COPY --from=builder /workspace/swoll /usr/local/bin
 RUN apk add --no-cache binutils
-
-ENTRYPOINT ["/usr/local/bin/swoll"]

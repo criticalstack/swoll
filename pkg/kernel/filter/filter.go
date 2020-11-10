@@ -43,6 +43,11 @@ type Rule struct {
 	Key       uint32
 }
 
+type Value struct {
+	SampleRate  uint64
+	SampleCount uint64
+}
+
 // Filter contains all maps and elf modules to read and write
 // filter information to the kernel probe.
 type Filter struct {
@@ -89,13 +94,15 @@ func (f Filter) InitFilter(m *elf.Module) error {
 	return nil
 }
 
-// addRule adds the rule to the actual bpf tables in the kernel.
-func (f *Filter) addRule(rule *Rule) error {
+func (f *Filter) addSampledRule(rule *Rule, sampleRate uint64) error {
 	if rule == nil {
 		return fmt.Errorf("nil rule")
 	}
 
-	val := uint8(1)
+	val := Value{
+		SampleRate:  sampleRate,
+		SampleCount: 0,
+	}
 
 	if err := f.m.UpdateElement(f.config, unsafe.Pointer(&rule.Type), unsafe.Pointer(&val), 0); err != nil {
 		return err
@@ -106,6 +113,28 @@ func (f *Filter) addRule(rule *Rule) error {
 	}
 
 	return nil
+}
+
+// addRule adds the rule to the actual bpf tables in the kernel without sampling.
+func (f *Filter) addRule(rule *Rule) error {
+	/*
+		if rule == nil {
+			return fmt.Errorf("nil rule")
+		}
+
+		val := uint8(1)
+
+		if err := f.m.UpdateElement(f.config, unsafe.Pointer(&rule.Type), unsafe.Pointer(&val), 0); err != nil {
+			return err
+		}
+
+		if err := f.m.UpdateElement(f.fmap, unsafe.Pointer(rule), unsafe.Pointer(&val), 0); err != nil {
+			return err
+		}
+
+		return nil
+	*/
+	return f.addSampledRule(rule, 0)
 }
 
 // delRule removes said rule from the kernel filter tables.
@@ -122,6 +151,18 @@ func (f *Filter) add(t Type, ns, key int) error {
 	rule := NewRule(t, uint32(ns), uint32(key))
 
 	if err := f.addRule(rule); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// addSampled will add a rule of type T with a sample rate of `rate` to the
+// filter table.
+func (f *Filter) addSampled(t Type, ns, key int, rate uint64) error {
+	rule := NewRule(t, uint32(ns), uint32(key))
+
+	if err := f.addSampledRule(rule, rate); err != nil {
 		return err
 	}
 
@@ -167,6 +208,19 @@ func (f *Filter) AddSyscall(nr interface{}, ns int) error {
 		return f.add(ModeWhitelist|TypeSyscall, ns, sc.Nr)
 	} else {
 		return f.add(ModeGlobalWhitelist|TypeSyscall, 0, sc.Nr)
+	}
+}
+
+func (f *Filter) AddSampledSyscall(nr interface{}, ns int, rate uint64) error {
+	sc, err := lookupSyscall(nr)
+	if err != nil {
+		return err
+	}
+
+	if ns != -1 {
+		return f.addSampled(ModeWhitelist|TypeSyscall, ns, sc.Nr, rate)
+	} else {
+		return f.addSampled(ModeGlobalWhitelist|TypeSyscall, 0, sc.Nr, rate)
 	}
 }
 
