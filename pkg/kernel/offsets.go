@@ -37,14 +37,14 @@ type Offsetter struct {
 // NewOffsetter creates and initializes a new Offsetter context from the ebpf
 // module.
 func NewOffsetter(mod *elf.Module) (*Offsetter, error) {
-	if smap := mod.Map("sk_offsets_config"); smap != nil {
+	if smap := mod.Map("swoll_offsets_config"); smap != nil {
 		return &Offsetter{
 			module:    mod,
 			configMap: smap,
 			offsets:   make(map[OffsetType]*Offset),
 		}, nil
 	}
-	return nil, fmt.Errorf("sk_offsets_config nil map")
+	return nil, fmt.Errorf("swoll_offsets_config nil map")
 }
 
 // NewOffset creates a new offset context

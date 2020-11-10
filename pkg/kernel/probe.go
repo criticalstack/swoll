@@ -35,7 +35,7 @@ const (
 	enterTracepoint = "tracepoint/raw_syscalls/sys_enter"
 	exitTracepoint  = "tracepoint/raw_syscalls/sys_exit"
 	execTracepoint  = "tracepoint/syscalls/sys_enter_execve"
-	perfmapName     = "sk_perf_output"
+	perfmapName     = "swoll_perf_output"
 )
 
 // NewProbeConfig returns the default configuration for a kernel probe.

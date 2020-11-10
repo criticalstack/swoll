@@ -30,8 +30,8 @@ const (
 	TypeSyscall         Type = 1 << 13
 	TypePid             Type = 1 << 14
 	TypePidns           Type = 1 << 15
-	gFilterConfig            = "sk_filter_config"
-	gFilter                  = "sk_filter"
+	gFilterConfig            = "swoll_filter_config"
+	gFilter                  = "swoll_filter"
 )
 
 // Rule represents a rule which can be sent to the kernel probe in the rawest

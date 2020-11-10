@@ -14,7 +14,7 @@ type Handler struct {
 func NewHandler(mod *elf.Module) *Handler {
 	return &Handler{
 		module: mod,
-		table:  mod.Map("sk_metrics"),
+		table:  mod.Map("swoll_metrics"),
 	}
 }
 

@@ -1,7 +1,14 @@
 apiVersion: tools.swoll.criticalstack.com/v1alpha1
 kind: Trace
 metadata:
-  name: trace-sample
+  name: monitor-nginx
 spec:
-  # Add fields here
-  foo: bar
+  syscalls:
+    - execve
+    - openat
+  labelSelector:
+      matchLabels:
+          app: "nginx"
+  fieldSelector:
+      matchLabels:
+          status.phase: "Running"
