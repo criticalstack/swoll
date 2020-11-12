@@ -154,7 +154,6 @@ var cmdTrace = &cobra.Command{
 				green := color.New(color.FgGreen).SprintFunc()
 				red := color.New(color.FgRed).SprintFunc()
 				cyan := color.New(color.FgCyan).SprintFunc()
-				bold := color.New(color.Bold).SprintFunc()
 				bgblack := color.New(color.BgBlack).SprintFunc()
 				white := color.New(color.FgWhite).SprintFunc()
 
@@ -170,13 +169,13 @@ var cmdTrace = &cobra.Command{
 				}
 
 				if !noContainers {
-					fmt.Printf("%35s: [%9s] (%11s) %s(", bold(green(ev.Container.FQDN())), ev.Comm, errno, bold(cyan(fn.CallName())))
+					fmt.Printf("%35s: [%9s] (%11s) %s(", green(ev.Container.FQDN()), ev.Comm, errno, cyan(fn.CallName()))
 				} else {
-					fmt.Printf("[%15s/%-8v] (%11s) %s(", ev.Comm, bold(ev.Pid), errno, bold(cyan(fn.CallName())))
+					fmt.Printf("[%15s/%-8v] (%11s) %s(", ev.Comm, ev.Pid, errno, cyan(fn.CallName()))
 				}
 
 				for x, arg := range args {
-					fmt.Printf("(%s)%s=%v", arg.Type, bold(arg.Name), bgblack(white(arg.Value)))
+					fmt.Printf("(%s)%s=%v", arg.Type, arg.Name, bgblack(white(arg.Value)))
 
 					if x < len(args)-1 {
 						fmt.Print(", ")

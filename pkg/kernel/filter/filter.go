@@ -104,7 +104,9 @@ func (f *Filter) addSampledRule(rule *Rule, sampleRate uint64) error {
 		SampleCount: 0,
 	}
 
-	if err := f.m.UpdateElement(f.config, unsafe.Pointer(&rule.Type), unsafe.Pointer(&val), 0); err != nil {
+	cfgEnabled := uint8(1)
+
+	if err := f.m.UpdateElement(f.config, unsafe.Pointer(&rule.Type), unsafe.Pointer(&cfgEnabled), 0); err != nil {
 		return err
 	}
 
@@ -117,23 +119,6 @@ func (f *Filter) addSampledRule(rule *Rule, sampleRate uint64) error {
 
 // addRule adds the rule to the actual bpf tables in the kernel without sampling.
 func (f *Filter) addRule(rule *Rule) error {
-	/*
-		if rule == nil {
-			return fmt.Errorf("nil rule")
-		}
-
-		val := uint8(1)
-
-		if err := f.m.UpdateElement(f.config, unsafe.Pointer(&rule.Type), unsafe.Pointer(&val), 0); err != nil {
-			return err
-		}
-
-		if err := f.m.UpdateElement(f.fmap, unsafe.Pointer(rule), unsafe.Pointer(&val), 0); err != nil {
-			return err
-		}
-
-		return nil
-	*/
 	return f.addSampledRule(rule, 0)
 }
 

@@ -11,6 +11,7 @@
 
 #include "bpf.h"
 
+/* random redefines needed for clang bpf target {{{ */
 #define _inline                        inline __attribute__((always_inline))
 #define bpf_probe_memset(dest, chr, n)   __builtin_memset((dest), (chr), (n))
 #define bpf_probe_memcpy(dest, src, n)   __builtin_memcpy((dest), (src), (n))
@@ -25,12 +26,11 @@
 #define __PIDTYPE_TGID                 PIDTYPE_MAX + 1
 #endif
 
-#define EVENT_ARGSZ                    128
-#define EVENT_ARGNUM                   5
-
 #ifndef TASK_COMM_LEN
 #define TASK_COMM_LEN                  16
 #endif
+
+/* }}} */
 
 #define _(P)                                      \
     ({                                            \
@@ -50,7 +50,6 @@
 #else
 #define D_(fmt, ...)
 #endif
-
 
 struct on_enter_args {
     long          id;
@@ -92,6 +91,10 @@ struct swoll_event_args_common {
 };
 
 
+#define EVENT_ARGSZ  128
+#define EVENT_ARGNUM 5
+
+/* both `swoll_args` and `swoll_buf` are the same - but accessed differently */
 struct swoll_args {
     __u8 a0[EVENT_ARGSZ];
     __u8 a1[EVENT_ARGSZ];
@@ -124,6 +127,7 @@ struct swoll_event {
     __u32 ret;
     __u8  comm[TASK_COMM_LEN];
 
+    /* accessors for grabbing references to specific arguments */
     #define EVENT_ARG0(ev) (ev)->_args.a0
     #define EVENT_ARG1(ev) (ev)->_args.a1
     #define EVENT_ARG2(ev) (ev)->_args.a2
@@ -136,7 +140,7 @@ struct swoll_event {
     };
 };
 
-/* [mnt|cgroupo|ipc]_namespace abstract containers {{{ */
+/* {{{ [mnt|cgroupo|ipc]_namespace abstract containers */
 struct mnt_namespace {
     int              count;
     struct ns_common ns;
@@ -153,7 +157,7 @@ struct ipc_namespace {
 };
 /* }}} */
 
-
+/* filtering definitions {{{ */
 #define SWOLL_FILTER_MODE_WHITELIST        (1 << 0)
 #define SWOLL_FILTER_MODE_BLACKLIST        (1 << 1)
 #define SWOLL_FILTER_MODE_GLOBAL_WHITELIST (1 << 2)
@@ -161,12 +165,11 @@ struct ipc_namespace {
 #define SWOLL_FILTER_TYPE_SYSCALL          (1 << 13)
 #define SWOLL_FILTER_TYPE_PID              (1 << 14)
 #define SWOLL_FILTER_TYPE_PIDNS            (1 << 15)
-#define SWOLL_FILTER_ALLOW                 0
-#define SWOLL_FILTER_DROP                  1
+#define SWOLL_FILTER_ALLOW                 (0)
+#define SWOLL_FILTER_DROP                  (1)
 
 /* filter types are the above (FILTER_MODE, etc) */
 typedef __u16 swoll_filter_type_t;
-
 
 struct swoll_filter_key {
     swoll_filter_type_t type; /* FILTER_TYPE_X|BL/WL */
@@ -179,8 +182,9 @@ struct swoll_filter_val {
     __u64 sample_rate;
     __u64 sample_count;
 };
+/* }}} end filtering definitions */
 
-/* BPF map definitions {{{ */
+/* {{{ BPF map definitions */
 
 /* big-arse hash table to store metrics */
 struct bpf_map_def
@@ -272,10 +276,9 @@ SEC("maps/swoll_offsets_config") swoll_offsets_config =
     .max_entries = 2,
 };
 
-/* }} end map definitions */
+/* }}} end BPF map definitions */
 
-
-/* helper macro for creating syscall parser function definitions */
+/* {{{ code generators & initializers for constructing a syscall definition/parser */
 #define SWOLL_CALL_DEF(TYPE)   static _inline __u32        \
     swoll__fill_args_ ## TYPE(struct on_enter_args * args, \
             struct on_exit_args * eargs,                   \
@@ -295,13 +298,16 @@ SEC("maps/swoll_offsets_config") swoll_offsets_config =
 
 #define SWOLL_STRUCT_DEF(TYPE) struct swoll_event_args_ ## TYPE
 #define SWOLL_STRUCT(TYPE)     SWOLL_STRUCT_DEF(TYPE) TYPE
+/* }}} */
 
 /* we only want to bpf_probe_memset 0 out the byte NOT INCLUDING the argument and
  * comm arguments. Those we can just zero out the first byte of each.
  */
 #define SWOLL_EVENT_SZ sizeof(struct swoll_event) - (EVENT_ARGSZ * EVENT_ARGNUM) - TASK_COMM_LEN
 
-
+/* {{{ syscall-argument struct definitions.
+ * all are *mostly* derived from `/sys/kernel/debug/tracing/events/syscalls/.../format` files.
+ */
 SWOLL_STRUCT_DEF(kill) {
     __s32 nr;
     __u64 pid;
@@ -892,6 +898,8 @@ SWOLL_STRUCT_DEF(exit)
     __u64 error_code;
 };
 
+/* }}} */
+
 struct swoll_event_args {
     struct swoll_event_args_common common;
 
@@ -982,6 +990,11 @@ struct swoll_event_args {
 };
 
 
+/**
+ * @brief check if a filter of `type` is enabled
+ *
+ * @return 1 if enabled, otherwise 0
+ */
 static _inline int
 swoll__is_filter_enabled(swoll_filter_type_t type)
 {
@@ -994,6 +1007,13 @@ swoll__is_filter_enabled(swoll_filter_type_t type)
     return 0;
 }
 
+/**
+ * @brief fetches the configured offset into task_struct where the `nsproxy`
+ *        member exists. If nothing has been set - the default offsetof nsproxy
+ *        is used (meaning it uses whatever offset this was compiled with)
+ *
+ * @return offset into task_struct of the nsproxy member
+ */
 static _inline __u32
 swoll__get_nsproxy_offset(void)
 {
@@ -1007,6 +1027,12 @@ swoll__get_nsproxy_offset(void)
     return (__u32)offsetof(struct task_struct, nsproxy);
 }
 
+/**
+ * @brief fetches the configured offset into `struct pid_namespace` where the
+ * `ns` member exists. If not set - default at-compile-time offset is used.
+ *
+ * @return offset into pid_namespace's ns member
+ */
 static _inline __u32
 swoll__get_pid_ns_common_offset(void)
 {
@@ -1020,6 +1046,9 @@ swoll__get_pid_ns_common_offset(void)
     return (__u32)offsetof(struct pid_namespace, ns);
 }
 
+/**
+ * @brief check the internal filter for access.
+ */
 static _inline __u8
 swoll__eval_filter(swoll_filter_type_t type, __u32 ns, __u32 key)
 {
