@@ -37,7 +37,7 @@ steps:
 - name: chart-lint
   image: alpine/helm
   commands:
-  - helm lint helm 
+  - helm lint chart
   when:
     event:
       - push
@@ -52,7 +52,7 @@ steps:
   commands:
   - apk add git
   - helm plugin install https://github.com/chartmuseum/helm-push
-  - helm push helm https://charts.cscr.io/criticalstack
+  - helm push chart https://charts.cscr.io/criticalstack
   when:
     event:
       - push
