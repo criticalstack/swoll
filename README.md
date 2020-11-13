@@ -4,6 +4,14 @@
   <img src="media/swoll-banner.png">
 </p>
 
+# QUICK
+
+Just wanna test things out? Here is an example command to run that doesn't require k8s.
+
+```
+docker run -it --pid=host --privileged criticalstack/swoll:latest trace --no-containers -s execve,openat
+```
+
 # Introduction
 
 Swoll is an experimental suite of applications and APIs for monitoring kernel-level activity on a live Kubernetes cluster, mostly written in the Golang programming language, strewn about with bits and bobs of C and Yaml. 
