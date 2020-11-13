@@ -1,0 +1,7 @@
+resources:
+- bases/tools.swoll.criticalstack.com_traces.yaml
+
+patchesStrategicMerge:
+
+configurations:
+- kustomizeconfig.yaml

@@ -1,0 +1,17 @@
+internal/bpf/.built-in.a.cmd
+internal/bpf/built-in.a
+internal/bpf/Module.symvers
+internal/bpf/modules.order
+internal/bpf/probe.ll
+internal/bpf/probe.o
+internal/bpf/probe_metrics.ll
+internal/bpf/probe_metrics.o
+internal/bpf/probe_tracer.ll
+internal/bpf/probe_tracer.o
+
+bin/*
+data/* 
+*.pem
+probe_tmp/
+dist/
+hack/tools/bin

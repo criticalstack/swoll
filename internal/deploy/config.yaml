@@ -1,0 +1,16 @@
+apiVersion: cinder.crit.sh/v1alpha1
+kind: ClusterConfiguration
+featureGates:
+  LocalRegistry: true
+postCritCommands:
+  - |
+    kubectl create namespace swoll
+    /swoll/bin/swoll selftest -b /swoll/bpf/probe.o -r /run/containerd/containerd.sock -k /etc/kubernetes/admin.conf --fix
+extraMounts:
+  - hostPath: internal/bpf
+    containerPath: /swoll/bpf
+    readOnly: true
+  - hostPath: bin
+    containerPath: /swoll/bin
+    readOnly: true
+

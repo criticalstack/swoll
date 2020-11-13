@@ -1,0 +1,14 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ template "swoll-controller.fullname" . }} 
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: swoll-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: {{ template "swoll-controller.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }} 
+
