@@ -7,7 +7,6 @@ before:
   # unfortunately unavoidable. Newer patch versions available to the CI will
   # satisfy the same module requirements and cause additions to go.sum.
   - git checkout -- go.sum
-  - git checkout -- hack/tools/go.sum
 builds:
 - id: swoll
   env:
@@ -25,7 +24,7 @@ builds:
     - all=-trimpath={{.Env.GOPATH}}
   flags:
     - -a
-    - -tags=nobindata,netgo,osusergo
+    - -tags=netgo,osusergo
   ldflags:
     - -linkmode external
     - -extldflags '-static'
