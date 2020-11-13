@@ -146,6 +146,8 @@ func (h *Hub) Run(ctx context.Context) error {
 	// nolint:errcheck
 	go topordr.Run(ctx)
 
+	msg := new(event.TraceEvent).WithTopology(h.topo)
+
 	for {
 		select {
 		case <-topordr.Read():
@@ -154,7 +156,6 @@ func (h *Hub) Run(ctx context.Context) error {
 		case ev := <-proberdr.Read():
 			// read a single event from the kernel, allcoate empty TraceEvent,
 			// initialize the underlying with the topology resolver
-			msg := new(event.TraceEvent).WithTopology(h.topo)
 			if _, err := msg.Ingest(ev); err != nil {
 				continue
 			}

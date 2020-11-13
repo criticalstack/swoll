@@ -1,7 +1,7 @@
 global:
   criEndpoint: /run/containerd/containerd.sock
   image:
-    repository: harbor.cstack.co/criticalstack/swoll
+    repository: criticalstack/swoll
     tag: latest
     pullPolicy: Always
   service:

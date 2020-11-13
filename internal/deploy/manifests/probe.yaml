@@ -30,7 +30,7 @@ spec:
           - -r
           - /run/containerd/containerd.sock
           name: swoll-probe
-          image: 'harbor.cstack.co/criticalstack/swoll:latest'
+          image: 'criticalstack/swoll:latest'
           imagePullPolicy: Always
           securityContext:
             privileged: true

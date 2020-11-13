@@ -168,12 +168,7 @@ func (f *Filter) del(t Type, ns, key int) error {
 // lookupSyscall is a helper function that takes either an int or a string and
 // attempts to find the matching Syscall structure.
 func lookupSyscall(nr interface{}) (*syscalls.Syscall, error) {
-	s, err := syscalls.New()
-	if err != nil {
-		return nil, err
-	}
-
-	sc := s.Lookup(nr)
+	sc := syscalls.Lookup(nr)
 	if sc == nil {
 		return nil, fmt.Errorf("syscall %v not found", nr)
 	}
