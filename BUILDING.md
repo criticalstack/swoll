@@ -5,24 +5,17 @@ you are building this tool on. I can make no guarantees for your old-ass kernels
 
 ## Kernel eBPF
 
-Swoll uses a combination of C for the eBPF probe, and golang for the client. If
-you wish to compile the eBPF probe manually, the following packages must be installed:
+Swoll uses a combination of C for the eBPF probe, and golang for the client. If you wish to compile the eBPF probe manually, the following packages must be installed:
 
 * clang
 * llvm
 * libelf-dev
 * linux-headers
+* binutils (for objdump)
 
-Note that the kernel version of the machine you compile this on must match (in
-most cases) the version being installed on the workers and nodes. This is due 
-to the fact we need to have the proper offsets into the `struct task_struct` for
-information lookup.
+The eBPF object may be compiled and installed separately, and all tooling should accept a `-b <bpf object>` flag, which is the path to the local compiled eBPF object.
 
-The eBPF object may be compiled and installed separately, and all tooling should
-accept a `-b <bpf object>` flag, which is the path to the local compiled eBPF
-object.
-
-Then simply run:
+Then run:
 ```
 make -C ./internal/bpf
 ```
@@ -50,24 +43,6 @@ The image will be available in cinder as `cinderegg:5000/swoll:latest`. Last, de
 
 ```shell
 $ kubectl apply -f internal/deploy/manifests
-```
-
-This includes the Swoll probe DaemonSet, Prometheus AlertManager, and Grafana. If everything worked then you should see something like this:
-
-```shell
-$ kubectl get po -A
-NAMESPACE            NAME                                  READY   STATUS    RESTARTS   AGE
-kube-system          cilium-8v4f8                          1/1     Running   0          23m
-kube-system          cilium-operator-657978fb5b-wg7mg      1/1     Running   0          23m
-kube-system          coredns-ttjz6                         1/1     Running   0          23m
-kube-system          kube-apiserver-cinder                 1/1     Running   0          23m
-kube-system          kube-controller-manager-cinder        1/1     Running   0          23m
-kube-system          kube-proxy-v7w7l                      1/1     Running   0          23m
-kube-system          kube-scheduler-cinder                 1/1     Running   0          23m
-local-path-storage   local-path-storage-74cd8967f5-v4trm   1/1     Running   0          23m
-swoll              alertmanager-669f74df9f-fcx9g         1/1     Running   0          20m
-swoll              grafana-deployment-54bd77f9f4-jh2cj   1/1     Running   0          20m
-swoll              swoll-probe-ds-hz4hg                  1/1     Running   0          20m
 ```
 
 ## Testing goreleaser
