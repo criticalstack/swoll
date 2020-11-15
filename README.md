@@ -398,9 +398,133 @@ Loop:
 ```
 
 ## swoll-trace
+
+```
+./bin/swoll trace -h
+Kubernetes-Aware strace(1)
+
+Usage:
+  swoll trace [flags]
+
+Flags:
+  -f, --field-selector string   field selector
+  -h, --help                    help for trace
+  -n, --namespace string        namespace to read from
+      --no-containers           disable container/k8s processing
+  -o, --output string           output format (default "cli")
+  -s, --syscalls strings        comma-separated list of syscalls to trace
+
+Global Flags:
+  -A, --altroot string          alternate root CWD
+  -b, --bpf string              alternative external bpf object
+  -r, --cri string              path to the local CRI unix socket
+  -k, --kubeconfig string       path to the local k8s config instance (defaults to incluster config)
+      --no-detect-offsets       Do not automatically determine task_struct member offsets (uses default offsets)
+      --nsproxy-offset string   Offset (in hex) of task_struct->nsproxy
+      --pidns-offset string     Offset (in hex) of pid_namespace->ns
+  -V, --version                 show version information
+```
+
+To run a simple trace on a system without Kubernetes resolution:
+
+```
+sudo ./bin/swoll trace --no-containers -s execve
+[sudo] password for lz:
+2020/11/15 13:45:08 trace.go:76: Checking install...
+2020/11/15 13:45:08 selftest.go:114: checking capabilities
+2020/11/15 13:45:08 selftest.go:119: checking for proper mounts
+2020/11/15 13:45:08 selftest.go:134: checking kernel-config (if available)
+2020/11/15 13:45:09 offsetter.go:234: warning: couldn't find address for sym utcns_get
+2020/11/15 13:45:10 offsetter.go:250: info: likelyOffset addr=0xae0, count=7
+2020/11/15 13:45:10 offsetter.go:222: info: pidns->ns_common likelyOffset addr=0xb8, count=5
+2020/11/15 13:45:10 offsetter.go:312: Setting task_struct->nsproxy offset to: ae0
+2020/11/15 13:45:10 offsetter.go:331: Setting pid_namespace->ns offset to: b8
+[        dockerd/475417  ] (OK) execve((const char *)filename=/usr/sbin/runc, (char * const)argv[]=--version   )
+[        dockerd/475424  ] (OK) execve((const char *)filename=/usr/bin/docker-init, (char * const)argv[]=--version   )
+[        dockerd/475425  ] (OK) execve((const char *)filename=/usr/sbin/runc, (char * const)argv[]=--version   )
+[        dockerd/475432  ] (OK) execve((const char *)filename=/usr/bin/docker-init, (char * const)argv[]=--version   )
+[        dockerd/475433  ] (OK) execve((const char *)filename=/usr/sbin/runc, (char * const)argv[]=--version   )
+[        dockerd/475440  ] (OK) execve((const char *)filename=/usr/bin/docker-init, (char * const)argv[]=--version   )
+[        dockerd/475441  ] (OK) execve((const char *)filename=/usr/sbin/runc, (char * const)argv[]=--version   )
+[        dockerd/475448  ] (OK) execve((const char *)filename=/usr/bin/docker-init, (char * const)argv[]=--version   )
+```
+
+If you have the `swoll-server` running, you can run traces from there like so:
+
+```
+$ kubectl exec -it swoll-server-POD -- swoll trace --cri /run/containerd/containerd.sock --syscalls openat,execve
+
+kube-apiserver.kube-apiserver-cinder.kube-system: [kube-apiserver] (OK) openat((int)dirfd=AT_FDCWD, (const char *)pathname=/etc/kubernetes/pki/ca.crt, (int)flags=O_CLOEXEC)
+kube-apiserver.kube-apiserver-cinder.kube-system: [kube-apiserver] (OK) openat((int)dirfd=AT_FDCWD, (const char *)pathname=/etc/kubernetes/pki/apiserver.crt, (int)flags=O_CLOEXEC)
+kube-apiserver.kube-apiserver-cinder.kube-system: [kube-apiserver] (OK) openat((int)dirfd=AT_FDCWD, (const char *)pathname=/etc/kubernetes/pki/front-proxy-ca.crt, (int)flags=O_CLOEXEC)
+kube-apiserver.kube-apiserver-cinder.kube-system: [kube-apiserver] (OK) openat((int)dirfd=AT_FDCWD, (const char *)pathname=/etc/kubernetes/pki/apiserver.key, (int)flags=O_CLOEXEC)
+kube-apiserver.kube-apiserver-cinder.kube-system: [kube-apiserver] (OK) openat((int)dirfd=AT_FDCWD, (const char *)pathname=/etc/kubernetes/pki/ca.crt, (int)flags=O_CLOEXEC)
+kube-apiserver.kube-apiserver-cinder.kube-system: [kube-apiserver] (OK) openat((int)dirfd=AT_FDCWD, (const char *)pathname=/etc/kubernetes/pki/front-proxy-ca.crt, (int)flags=O_CLOEXEC)
+local-path-provisioner.local-path-storage-74cd8967f5-f7p5b.local-path-storage: [local-path-prov] (OK) openat((int)dirfd=AT_FDCWD, (const char *)pathname=/var/run/secrets/kubernetes.io/serviceaccount/token, (int)flags=O_CLOEXEC)
+
+```
+
 ## swoll-server
-## swoll-controller
+
+The server acts as a buffer between the kernel and userland. It controls the
+filtering rules to a single BPF object, and multiplexes out streams of data to
+clients.
+
+Take the following TraceJob definition:
+
+```yaml
+apiVersion: tools.swoll.criticalstack.com/v1alpha1
+kind: Trace
+metadata:
+  name: monitor-nginx
+spec:
+  syscalls:
+    - execve
+    - openat
+  labelSelector:
+      matchLabels:
+          app: "nginx"
+  fieldSelector:
+      matchLabels:
+          status.phase: "Running"
+```
+
+When the server receives this request, it will start to monitor for any PODs
+with the labels "app=nginx", and the phase of "Running". For every container in
+a matched POD, the server will:
+
+1. Look up the PID-namespace of the container
+2. Insert two filters into the running BPF: `filter <pid-namespace>:execve` and
+   `filter <pid-namespace>:openat`.
+3. Output matched events to a job-queue in raw JSON format.
+
+The server is intelligent enough not to duplicate rules, or accidentally delete
+filters from another running job.
+
+Once a server is running in a k8s cluster, utilize the `swoll client` command to
+interact directly with the server.
+
 ## swoll-client
+
+The client command is used to directly interact with one or more
+`swoll-server`'s. 
+
+```
+./bin/swoll client create \
+  --endpoints 172.19.0.3:9095,172.19.2.3:9095 \
+  --syscalls execve,openat \
+  --field-selector status.phase=Running \
+  -n kube-system \
+  --oneshot -o cli
+  cilium-agent.cilium-cjdfv.kube-system: [cilium-agent] (OK) openat((int)dirfd=AT_FDCWD, (const char *)pathname=/proc/loadavg, (int)flags=O_CLOEXEC)
+cilium-agent.cilium-cjdfv.kube-system: [cilium-agent] (OK) openat((int)dirfd=AT_FDCWD, (const char *)pathname=/proc/loadavg, (int)flags=O_CLOEXEC)
+cilium-operator.cilium-operator-657978fb5b-2ntrt.kube-system: [cilium-operator] (OK) openat((int)dirfd=AT_FDCWD, (const char *)pathname=/var/run/secrets/kubernetes.io/serviceaccount/token, (int)flags=O_CLOEXEC)
+manager.swoll-controller-swoll-d944d75f-ktdn6.kube-system: [      swoll] (OK) openat((int)dirfd=AT_FDCWD, (const char *)pathname=/var/run/secrets/kubernetes.io/serviceaccount/token, (int)flags=O_CLOEXEC)
+cilium-agent.cilium-cjdfv.kube-system: [cilium-agent] (OK) openat((int)dirfd=AT_FDCWD, (const char *)pathname=/proc/loadavg, (int)flags=O_CLOEXEC)
+```
+
+
+## swoll-controller
 
 *Monitor. Consume. React.*
 

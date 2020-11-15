@@ -1,7 +1,6 @@
 # Building
 
 **NOTE** It is suggested to have at LEAST Linux *v5.0.0* installed on your node-workers and the host in which 
-you are building this tool on. I can make no guarantees for your old-ass kernels. Also, no, it probvably doesn't work out of the box for your specific distro of choice. Kernels change, so you must too. 
 
 ## Kernel eBPF
 
