@@ -1,7 +1,8 @@
+{{- if .Values.controller.enabled -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ template "swoll-controller.fullname" . }} 
+  name: {{ template "swoll.fullname" . }}-controller
   namespace: {{ .Release.Namespace }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -11,4 +12,4 @@ subjects:
 - kind: ServiceAccount
   name: {{ template "swoll-controller.serviceAccountName" . }}
   namespace: {{ .Release.Namespace }} 
-
+{{- end -}}

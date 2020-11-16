@@ -1,27 +1,21 @@
-global:
-  criEndpoint: /run/containerd/containerd.sock
-  image:
-    repository: criticalstack/swoll
-    tag: latest
-    pullPolicy: Always
-  service:
-    port: 9095
-    type: NodePort
+criEndpoint: /run/containerd/containerd.sock
+image:
+  repository: criticalstack/swoll
+  tag: latest
+  pullPolicy: Always
 
-swoll-server:
+server:
   enabled: true 
-  listenPort: 9095
-  nodePort: 32095
+  service:
+    type: NodePort
+    port: 9095
+    targetPort: 9095
+    nodePort: 32095
   enablePrometheus: true
   serviceAccount:
     create: true
 
-swoll-controller:
+controller:
   enabled: true
   serviceAccount:
     create: true
-
-serviceAccount:
-  create: true
-
-

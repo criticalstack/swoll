@@ -1,0 +1,57 @@
+{{- if .Values.server.enabled -}}
+apiVersion: {{ template "daemonset.apiVersion" . }} 
+kind: DaemonSet
+metadata:
+    name: {{ template "swoll.fullname" . }}-server
+    namespace: "{{ .Release.Namespace }}" 
+spec:
+  selector:
+    matchLabels:
+      {{- include "swoll.labels" . | nindent 6 }}
+      app.kubernetes.io/component: server
+  template:
+    metadata:
+      name: {{ template "swoll.fullname" . }}-server
+      labels:
+        {{- include "swoll.labels" . | nindent 8 }}
+        app.kubernetes.io/component: server
+        swoll: "false"
+      annotations:
+        {{- if .Values.server.enablePrometheus }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ .Values.server.service.targetPort }}"
+        {{- end }}
+    spec:
+      hostPID: true
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      tolerations:
+        - effect: NoSchedule
+          operator: Exists
+      serviceAccountName: {{ include "swoll-server.serviceAccountName" . }}
+      containers:
+        - command:
+          - swoll
+          - server
+          - -r 
+          - {{ .Values.criEndpoint }}
+          - --listen-addr
+          - ":{{ .Values.server.service.targetPort }}"
+          name: server
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}" 
+          imagePullPolicy: "{{ .Values.image.pullPolicy }}" 
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: {{ .Values.criEndpoint }}
+              name: containerd
+            - mountPath: /sys
+              name: sys
+      volumes:
+        - name: sys
+          hostPath:
+            path: /sys
+        - name: containerd
+          hostPath:
+            path: {{ .Values.criEndpoint }} 
+{{- end -}}

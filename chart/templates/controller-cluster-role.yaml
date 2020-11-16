@@ -1,8 +1,9 @@
+{{- if .Values.controller.enabled -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   creationTimestamp: null
-  name: {{ template "swoll-controller.fullname" . }} 
+  name: {{ template "swoll.fullname" . }}-controller
 rules:
 - apiGroups:
   - ""
@@ -50,3 +51,4 @@ rules:
   - get
   - patch
   - update
+{{- end -}}

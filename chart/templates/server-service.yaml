@@ -1,0 +1,18 @@
+{{- if .Values.server.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "swoll.fullname" . }}-server
+  namespace: "{{ .Release.Namespace }}" 
+spec:
+  selector:
+    {{- include "swoll.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+  type: {{ .Values.server.service.type }}
+  ports:
+    - port: {{ .Values.server.service.port }}
+      {{- if eq .Values.server.service.type "NodePort" }}
+      nodePort: {{ .Values.server.service.nodePort }}
+      {{- end }}
+      targetPort: {{ .Values.server.service.targetPort }} 
+{{- end -}}

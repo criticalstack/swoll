@@ -1,19 +1,22 @@
+{{- if .Values.controller.enabled -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
     control-plane: controller-manager
-  name: {{ template "swoll-controller.fullname" . }} 
+  name: {{ template "swoll.fullname" . }}-controller
   namespace: {{ .Release.Namespace }} 
 spec:
   replicas: 1
   selector:
     matchLabels:
-      control-plane: controller-manager
+      {{- include "swoll.labels" . | nindent 6 }}
+      app.kubernetes.io/component: controller
   template:
     metadata:
       labels:
-        control-plane: controller-manager
+        {{- include "swoll.labels" . | nindent 8 }}
+        app.kubernetes.io/component: controller
     spec:
       serviceAccountName: {{ include "swoll-controller.serviceAccountName" .}}
       containers:
@@ -35,8 +38,8 @@ spec:
         - controller
         - --enable-leader-election
         - --image
-        - "{{ .Values.global.image.repository }}:{{ .Values.global.image.tag }}"  
-        image: "{{ .Values.global.image.repository }}:{{ .Values.global.image.tag }}"  
+        - "{{ .Values.image.repository }}:{{ .Values.image.tag }}"  
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"  
         name: manager
         resources:
           limits:
@@ -46,4 +49,4 @@ spec:
             cpu: 100m
             memory: 20Mi
       terminationGracePeriodSeconds: 10
-
+{{- end -}}

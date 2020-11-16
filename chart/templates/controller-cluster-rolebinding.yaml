@@ -1,13 +1,14 @@
+{{- if .Values.controller.enabled -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ template "swoll-controller.fullname" . }} 
+  name: {{ template "swoll.fullname" . }}-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ template "swoll-controller.serviceAccountName" . }} 
+  name: {{ template "swoll.fullname" . }}-controller
 subjects:
 - kind: ServiceAccount
   name: {{ template "swoll-controller.serviceAccountName" . }} 
   namespace: {{ .Release.Namespace }} 
-
+{{- end -}}
