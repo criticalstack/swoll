@@ -1,4 +1,4 @@
-[![Build Status](https://drone.cstack.co/api/badges/criticalstack/swoll/status.svg)](https://drone.cstack.co/criticalstack/swoll)
+![Build Status](https://github.com/criticalstack/swoll/workflows/Lint%20and%20test%20Swoll/badge.svg)
 
 <p align="center">
   <img src="media/swoll-banner.png">
