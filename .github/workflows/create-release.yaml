@@ -18,4 +18,6 @@ jobs:
       - name: Run goreleaser
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: curl -sL https://git.io/goreleaser | bash
+        run: |
+          export GOPATH=$(go env GOPATH)
+          curl -sL https://git.io/goreleaser | bash
