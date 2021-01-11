@@ -57,7 +57,7 @@ func (h *Hub) RunTrace(t *v1alpha1.Trace) error {
 	return h.RunJob(NewJob(t))
 }
 
-// DeleteTrace will stop all the runninb jobs that are associated with this
+// DeleteTrace will stop all the running jobs that are associated with this
 // Trace specification. using the job-id, we iterate over each context and
 // if there are no other jobs trying to use the syscall and pod associated
 // with this, the kernel filters are removed.
@@ -79,6 +79,10 @@ func (h *Hub) DeleteTrace(t *v1alpha1.Trace) error {
 		// find our bucket in our `nsmap` hash using this
 		// contexts kernel-namespace and syscall-nr.
 		jnslist := h.findJobList(ctx.ns, ctx.nr)
+		if jnslist == nil {
+			log.Printf("job-namespace-list is nil for %v %v", ctx.ns, ctx.nr)
+			continue
+		}
 
 		// delete this element from the namespace map
 		log.Printf("Removing %s/%s from namespace-list\n", ctx.JobID(), syscalls.Lookup(ctx.nr))

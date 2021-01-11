@@ -54,19 +54,26 @@ type JobList struct {
 	*list.List
 }
 
+// createJobKey generates a formatted key to use with container additions
+func createJobKey(pod, name string) string {
+	return name + "." + pod
+}
+
 // AddContainer tells the job to monitor a very specific container in a specific
 // pod.
 func (j *Job) AddContainer(pod, name string) {
-	if _, ok := j.monitoredHosts[name+"."+pod]; ok {
+	key := createJobKey(pod, name)
+
+	if _, ok := j.monitoredHosts[key]; ok {
 		return
 	}
 
-	j.monitoredHosts[name+"."+pod] = true
+	j.monitoredHosts[key] = true
 }
 
 // RemoveContainer removes the watch for a specific container in a specific pod
 func (j *Job) RemoveContainer(pod, name string) {
-	j.monitoredHosts[name+"."+pod] = false
+	j.monitoredHosts[createJobKey(pod, name)] = false
 }
 
 // Run will run a job inside the Hub. The primary goal of this function is to
@@ -156,7 +163,9 @@ func (j *Job) Run(h *Hub, done chan bool) error {
 				}
 
 			case event.ContainerDelEvent:
-				// container that matched our labels is being removed from the cluster.
+				// container that matched our labels is being removed from the
+				// cluster. Knowing that this container no longer exists, we
+				// can remove the associated global kernel filters.
 				pns := ev.PidNamespace
 				j.RemoveContainer(ev.Pod, ev.Name)
 
