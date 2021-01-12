@@ -257,6 +257,28 @@ func (h *Hub) PushJob(job *Job, ns, nr int) {
 
 }
 
+func (h *Hub) findLowestSampleJob(ns, nr int) *JobContext {
+	joblist := h.findJobList(ns, nr)
+	if joblist == nil {
+		return nil
+	}
+
+	min := joblist.Front().Value.(*JobContext)
+
+	var next *list.Element
+
+	for j := joblist.Front(); j != nil; j = next {
+		next = j.Next()
+		ctx := j.Value.(*JobContext)
+
+		if ctx.Spec.SampleRate < min.Spec.SampleRate {
+			min = ctx
+		}
+	}
+
+	return min
+}
+
 // NewHub creates and initializes a Hub context for reading and writing data to
 // the kernel probe and routing them to the clients that care.
 func NewHub(config *Config, observer topology.Observer) (*Hub, error) {

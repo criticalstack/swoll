@@ -30,6 +30,7 @@ require (
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/sys v0.0.0-20201009025420-dfb3f7c4e634
 	google.golang.org/grpc v1.26.0
+	gopkg.in/yaml.v2 v2.3.0
 	k8s.io/api v0.18.4
 	k8s.io/apimachinery v0.18.10
 	k8s.io/client-go v0.18.4

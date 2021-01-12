@@ -19,6 +19,7 @@ import (
 	color "github.com/fatih/color"
 	uuid "github.com/google/uuid"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
@@ -206,8 +207,8 @@ var cmdClientCreate = &cobra.Command{
 				log.Fatal(err)
 			}
 
-			if err = json.Unmarshal(jsFile, &traceSpec); err != nil {
-				log.Fatal(err)
+			if err = yaml.Unmarshal(jsFile, &traceSpec); err != nil {
+				log.Fatalf("failed to read trace specification: %v", err)
 			}
 		}
 
@@ -325,6 +326,7 @@ var cmdClientCreate = &cobra.Command{
 						j, _ := json.Marshal(ev)
 						fmt.Fprintf(os.Stdout, "%s\n", string(j))
 					}
+
 				case <-sigChan:
 					break Loop
 				}
@@ -333,8 +335,10 @@ var cmdClientCreate = &cobra.Command{
 		}
 
 		// notify all background tasks to stop and cleanup
-		stpChan <- true
-		wg.Wait()
+		if oneshot {
+			stpChan <- true
+			wg.Wait()
+		}
 
 		close(outChan)
 		close(sigChan)

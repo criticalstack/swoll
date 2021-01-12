@@ -19,6 +19,8 @@ import (
 // Job maintains the general rules for which a trace runs under.
 type Job struct {
 	*v1alpha1.Trace
+	sampled        int
+	emulateSamples bool
 	monitoredHosts map[string]bool
 }
 
@@ -189,8 +191,53 @@ func (j *Job) Run(h *Hub, done chan bool) error {
 
 // WriteEvent writes event `ev` to all listeners of this `Job`
 func (j *Job) WriteEvent(h *Hub, ev *event.TraceEvent) {
-	h.ps.Publish(ev, pubsub.LinearTreeTraverser(
-		hashPath(swJobStream, j.JobID())))
+	if j.Spec.SampleRate > 0 {
+		// if this job is marked as sampled, and there are other jobs running
+		// that are sampling at a different rate for the same data from the
+		// kernel, we must emulate the rate in which was requested for this
+		// specific rule.
+		//
+		// we do this by finding the lowest-sample config value for this
+		// pid_namespace+syscall_nr configured in the kernel. We create a
+		// sub-sample value based off this returned value and this job's sample
+		// rate so that sampling-a-sample will be statistically correct.
+		//
+		// For example, if we have 8 events, e1...e8, and three rules which
+		// match the same host+syscall,
+		// r1: sample=1 // 1:1 sampling, e.g., ALL
+		// r2: sample=2
+		// r3: sample=4
+		//
+		// r1 will match on e1,e2,e3,e4,e5,e6,e7,e8 (kernel sampled)
+		// r2 will match on e2,e4,e6,e8             (emulated sampled)
+		// r3 will match on e4,e8                   (emulated sampled)
+		j.sampled++
+
+		// find the job context for this specific namespace and syscall-nr that
+		// has the lowest sample-rate.
+		jctx := h.findLowestSampleJob(ev.PidNamespace, ev.Syscall.Nr)
+		if jctx.Job == j {
+			// this job is the holder of the lowest sample rate.
+			// so we can calculate the sub-sample value directly using this jobs
+			// rate.
+			if j.sampled%j.Spec.SampleRate == 0 {
+				log.Printf("[%s] job is already lowest sample-rate, Sending sampled %d\n", j.JobID(), j.sampled)
+				h.ps.Publish(ev, pubsub.LinearTreeTraverser(hashPath(swJobStream, j.JobID())))
+			}
+		} else {
+			// this job is NOT the holder of the lowest sample rate. So we
+			// subtract the lowst known sample rate from this sample rate to
+			// create a subsample value.
+			subsample := j.Spec.SampleRate - jctx.Spec.SampleRate
+			if j.sampled%subsample == 0 {
+				log.Printf("[%s] job is a sub-sample, sending %d\n", j.JobID(), j.sampled)
+				h.ps.Publish(ev, pubsub.LinearTreeTraverser(hashPath(swJobStream, j.JobID())))
+			}
+		}
+	} else {
+		log.Printf("[%s] job has no sample-rate, Sending %d\n", j.JobID(), j.sampled)
+		h.ps.Publish(ev, pubsub.LinearTreeTraverser(hashPath(swJobStream, j.JobID())))
+	}
 }
 
 // TraceSpec returns the `TraceSpec` defined for this `Job`
