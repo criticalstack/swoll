@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/signal"
 	"strconv"
@@ -18,6 +17,7 @@ import (
 	"github.com/criticalstack/swoll/pkg/event/call"
 	color "github.com/fatih/color"
 	uuid "github.com/google/uuid"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/labels"
@@ -122,7 +122,7 @@ func watchJob(ctx context.Context, endpoints []*client.Endpoint, id string) {
 			defer wg.Done()
 
 			if err := ep.ReadTraceJob(ctx, id, outChan); err != nil {
-				log.Println("Error reading: ", err)
+				log.Warn("Error reading: ", err)
 			}
 
 			<-ctx.Done()
@@ -261,7 +261,7 @@ var cmdClientCreate = &cobra.Command{
 				log.Fatal(err)
 			}
 
-			log.Printf("Endpoint %s:%d created %s\n", ep.Hostname, ep.Port, trace.Status.JobID)
+			log.Debugf("Endpoint %s:%d created %s\n", ep.Hostname, ep.Port, trace.Status.JobID)
 
 			// if oneshot is enabled we also start reading from the job, and
 			// delete it once we are done.
@@ -269,11 +269,11 @@ var cmdClientCreate = &cobra.Command{
 				wg.Add(1)
 				go func() {
 					if err := ep.ReadTraceJob(ctx, trace.Status.JobID, outChan); err != nil {
-						log.Println("Error reading", err)
+						log.Warn("Error reading", err)
 					}
 
 					if err := ep.DeleteTraceJob(ctx, trace.Status.JobID); err != nil {
-						log.Println("Error deleting", err)
+						log.Warn("Error deleting", err)
 					}
 
 					wg.Done()
@@ -375,7 +375,7 @@ func runQuery(cmd *cobra.Command, args []string, completed bool) {
 			continue
 		}
 
-		log.Printf("endpoint=%s:%d\n%s\n", ep.Hostname, ep.Port, string(js))
+		log.Infof("endpoint=%s:%d\n%s\n", ep.Hostname, ep.Port, string(js))
 	}
 }
 

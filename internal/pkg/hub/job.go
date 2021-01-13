@@ -3,7 +3,6 @@ package hub
 import (
 	"container/list"
 	"context"
-	"log"
 	"time"
 
 	"github.com/criticalstack/swoll/api/v1alpha1"
@@ -12,6 +11,7 @@ import (
 	"github.com/criticalstack/swoll/pkg/event/reader"
 	"github.com/criticalstack/swoll/pkg/syscalls"
 	"github.com/criticalstack/swoll/pkg/topology"
+	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -149,7 +149,7 @@ func (j *Job) Run(ctx context.Context, h *Hub) error {
 				// got a new container that matched, for each syscall, push a
 				// job up that associates pidns+syscallNR with this job
 				for _, sc := range calls {
-					log.Printf("[%s/%d] Adding syscall '%s' to kernel-filter\n", j.JobID(), pns, sc.Name)
+					log.Tracef("[%s/%d] Adding syscall '%s' to kernel-filter\n", j.JobID(), pns, sc.Name)
 
 					// This will create a sub-filter off of the pid-namespace
 					// which matches this subset of syscalls..
@@ -159,7 +159,7 @@ func (j *Job) Run(ctx context.Context, h *Hub) error {
 					// this given pid-namespace.
 					// Note: if the filter already exists, this acts as a NOP.
 					if err := h.filter.AddSyscall(sc.Nr, pns); err != nil {
-						log.Printf("[%s/%d] Error adding syscall kernel-filter for '%s'\n", j.JobID(), pns, sc.Name)
+						log.Warnf("[%s/%d] Error adding syscall kernel-filter for '%s'\n", j.JobID(), pns, sc.Name)
 						return err
 					}
 				}
@@ -172,10 +172,10 @@ func (j *Job) Run(ctx context.Context, h *Hub) error {
 				j.RemoveContainer(ev.Pod, ev.Name)
 
 				for _, sc := range calls {
-					log.Printf("[%s/%d] removing syscall '%s' to kernel-filter\n", j.JobID(), pns, sc.Name)
+					log.Tracef("[%s/%d] removing syscall '%s' to kernel-filter\n", j.JobID(), pns, sc.Name)
 
 					if err := h.filter.RemoveSyscall(sc.Nr, pns); err != nil {
-						log.Printf("[%s/%d] failed to remove syscall '%s' from kernel-filter\n", j.JobID(), pns, sc.Name)
+						log.Warnf("[%s/%d] failed to remove syscall '%s' from kernel-filter\n", j.JobID(), pns, sc.Name)
 
 						// XXX[lz]: just continue on for now - but we should
 						// really think about what to do in cases like this as
@@ -221,7 +221,7 @@ func (j *Job) WriteEvent(h *Hub, ev *event.TraceEvent) {
 			// so we can calculate the sub-sample value directly using this jobs
 			// rate.
 			if j.sampled%j.Spec.SampleRate == 0 {
-				log.Printf("[%s] job is already lowest sample-rate, Sending sampled %d\n", j.JobID(), j.sampled)
+				log.Tracef("[%s] job is already lowest sample-rate, Sending sampled %d\n", j.JobID(), j.sampled)
 				h.ps.Publish(ev, pubsub.LinearTreeTraverser(hashPath(swJobStream, j.JobID())))
 			}
 		} else {
@@ -230,12 +230,12 @@ func (j *Job) WriteEvent(h *Hub, ev *event.TraceEvent) {
 			// create a subsample value.
 			subsample := j.Spec.SampleRate - jctx.Spec.SampleRate
 			if j.sampled%subsample == 0 {
-				log.Printf("[%s] job is a sub-sample, sending %d\n", j.JobID(), j.sampled)
+				log.Tracef("[%s] job is a sub-sample, sending %d\n", j.JobID(), j.sampled)
 				h.ps.Publish(ev, pubsub.LinearTreeTraverser(hashPath(swJobStream, j.JobID())))
 			}
 		}
 	} else {
-		log.Printf("[%s] job has no sample-rate, Sending %d\n", j.JobID(), j.sampled)
+		log.Tracef("[%s] job has no sample-rate, Sending %d\n", j.JobID(), j.sampled)
 		h.ps.Publish(ev, pubsub.LinearTreeTraverser(hashPath(swJobStream, j.JobID())))
 	}
 }

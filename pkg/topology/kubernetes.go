@@ -12,12 +12,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"os"
 
 	"github.com/criticalstack/swoll/pkg/types"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	kapi "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -256,7 +256,7 @@ func (k *Kubernetes) criContainers(ctx context.Context, match ...*matchPod) ([]*
 		// container matches.
 		if len(match) > 0 {
 			if pod == "" || kns == "" {
-				log.Printf("[warning] no kubernets namespace/pod found in CRI labels")
+				log.Warnf("no kubernets namespace/pod found in CRI labels")
 				continue
 			}
 
@@ -274,7 +274,7 @@ func (k *Kubernetes) criContainers(ctx context.Context, match ...*matchPod) ([]*
 		if err != nil {
 			// could not find a pid for this container, warn and skip since we
 			// really can't do anything with this entry.
-			log.Printf("[warning] could not fetch pid for container '%s' (%v) .. skipping", id, err)
+			log.Warnf("could not fetch pid for container '%s' (%v) .. skipping", id, err)
 			continue
 		}
 
@@ -282,7 +282,7 @@ func (k *Kubernetes) criContainers(ctx context.Context, match ...*matchPod) ([]*
 		if err != nil {
 			// could not fetch the pid-namespace of this container, warn and
 			// continue.
-			log.Printf("[warning] could not fetch pid-namespace for container '%s' (%v) .. skipping", id, err)
+			log.Warnf("could not fetch pid-namespace for container '%s' (%v) .. skipping", id, err)
 			continue
 		}
 
@@ -323,7 +323,7 @@ func (k *Kubernetes) Close() error {
 func (k *Kubernetes) containersForPod(ctx context.Context, pod *kapi.Pod) []*types.Container {
 	criContainers, err := k.criContainers(ctx, &matchPod{pod.Name, pod.Namespace})
 	if err != nil {
-		log.Printf("[warning] failed to fetch CRI containers matching pod %s/%s: %v", pod.Name, pod.Namespace, err)
+		log.Warnf("failed to fetch CRI containers matching pod %s/%s: %v", pod.Name, pod.Namespace, err)
 	}
 
 	return criContainers
@@ -335,7 +335,7 @@ func (k *Kubernetes) containersForPod(ctx context.Context, pod *kapi.Pod) []*typ
 func (k *Kubernetes) Run(ctx context.Context, out chan<- *ObservationEvent) {
 	if k.kubeWatcher == nil {
 		if err := k.connectKube(ctx); err != nil {
-			log.Printf("[warning] error connecting to kubernetes: %v", err)
+			log.Warnf("error connecting to kubernetes: %v", err)
 			return
 		}
 	}
@@ -348,16 +348,16 @@ func (k *Kubernetes) Run(ctx context.Context, out chan<- *ObservationEvent) {
 			newpod := newobj.(*kapi.Pod)
 
 			for _, c := range k.containersForPod(ctx, oldpod) {
-				log.Printf("[info] (update) removing %s.%s.%s\n", c.Name, c.Pod, c.Namespace)
+				log.Infof("(update) removing %s.%s.%s\n", c.Name, c.Pod, c.Namespace)
 
 				out <- &ObservationEvent{EventTypeStop, c}
 			}
 
-			log.Printf("[info] (update) oldStatus=%v, newStatus=%v\n", oldpod.Status.Phase, newpod.Status.Phase)
+			log.Infof("(update) oldStatus=%v, newStatus=%v\n", oldpod.Status.Phase, newpod.Status.Phase)
 
 			if newpod.Status.Phase == kapi.PodRunning {
 				for _, c := range k.containersForPod(ctx, newpod) {
-					log.Printf("[info] (update) adding %s.%s.%s\n", c.Name, c.Pod, c.Namespace)
+					log.Infof("(update) adding %s.%s.%s\n", c.Name, c.Pod, c.Namespace)
 
 					out <- &ObservationEvent{EventTypeStart, c}
 				}
@@ -365,14 +365,14 @@ func (k *Kubernetes) Run(ctx context.Context, out chan<- *ObservationEvent) {
 		},
 		DeleteFunc: func(obj interface{}) {
 			for _, c := range k.containersForPod(ctx, obj.(*kapi.Pod)) {
-				log.Printf("[info] removing %s.%s.%s\n", c.Name, c.Pod, c.Namespace)
+				log.Infof("removing %s.%s.%s\n", c.Name, c.Pod, c.Namespace)
 
 				out <- &ObservationEvent{EventTypeStop, c}
 			}
 		},
 		AddFunc: func(obj interface{}) {
 			for _, c := range k.containersForPod(ctx, obj.(*kapi.Pod)) {
-				log.Printf("[info] adding %s.%s.%s\n", c.Name, c.Pod, c.Namespace)
+				log.Infof("adding %s.%s.%s\n", c.Name, c.Pod, c.Namespace)
 
 				out <- &ObservationEvent{EventTypeStart, c}
 			}

@@ -6,10 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/criticalstack/swoll/api/v1alpha1"
 	"github.com/criticalstack/swoll/pkg/event"
@@ -171,7 +172,7 @@ func (ep *Endpoint) writeWebsock(ctx context.Context, conn *websocket.Conn) {
 		select {
 		case <-t.C:
 			if err := conn.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
-				log.Printf("Error setting write deadline: %v", err)
+				log.Warnf("Error setting write deadline: %v", err)
 				return
 			}
 
@@ -179,7 +180,7 @@ func (ep *Endpoint) writeWebsock(ctx context.Context, conn *websocket.Conn) {
 			message := []byte(fmt.Sprintf("%d", tn.UnixNano()))
 
 			if err := conn.WriteMessage(websocket.PingMessage, message); err != nil {
-				log.Printf("Error writing ping message: %v", err)
+				log.Warnf("Error writing ping message: %v", err)
 				return
 			}
 		case <-ctx.Done():

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"strings"
 
@@ -21,6 +20,7 @@ import (
 	"github.com/criticalstack/swoll/pkg/topology"
 	color "github.com/fatih/color"
 	uuid "github.com/google/uuid"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -71,9 +71,7 @@ var cmdTrace = &cobra.Command{
 	Use:   "trace",
 	Short: "Kubernetes-Aware strace(1)",
 	Run: func(cmd *cobra.Command, args []string) {
-		log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
-
-		log.Println("Checking install...")
+		log.Info("Checking install...")
 		if err := runSelfTest(true); err != nil {
 			log.Fatal(err)
 		}

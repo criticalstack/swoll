@@ -2,8 +2,9 @@ package syscalls
 
 import (
 	"fmt"
-	"log"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type Syscall struct {

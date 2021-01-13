@@ -5,7 +5,6 @@ import (
 	"container/list"
 	"context"
 	"errors"
-	"log"
 	"sync"
 	"time"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/criticalstack/swoll/pkg/kernel/filter"
 	"github.com/criticalstack/swoll/pkg/syscalls"
 	"github.com/criticalstack/swoll/pkg/topology"
+	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -80,21 +80,21 @@ func (h *Hub) DeleteTrace(t *v1alpha1.Trace) error {
 		// contexts kernel-namespace and syscall-nr.
 		jnslist := h.findJobList(ctx.ns, ctx.nr)
 		if jnslist == nil {
-			log.Printf("job-namespace-list is nil for %v %v", ctx.ns, ctx.nr)
+			log.Warnf("job-namespace-list is nil for %v %v", ctx.ns, ctx.nr)
 			continue
 		}
 
 		// delete this element from the namespace map
-		log.Printf("Removing %s/%s from namespace-list\n", ctx.JobID(), syscalls.Lookup(ctx.nr))
+		log.Tracef("Removing %s/%s from namespace-list\n", ctx.JobID(), syscalls.Lookup(ctx.nr))
 		jnslist.Remove(ctx.nselem)
 
 		// if our `nsmap` is now empty, we can safely remove
 		// this from the running kernel filter.
 		if jnslist.Len() == 0 {
-			log.Printf("Bucket for %s/%s empty, dumping job bucket.\n", ctx.JobID(), syscalls.Lookup(ctx.nr))
+			log.Tracef("Bucket for %s/%s empty, dumping job bucket.\n", ctx.JobID(), syscalls.Lookup(ctx.nr))
 
 			if err := h.filter.RemoveSyscall(ctx.nr, ctx.ns); err != nil {
-				log.Printf("[warn] Failed to remove syscall from kernel-filter: %v", err)
+				log.Warnf("Failed to remove syscall from kernel-filter: %v", err)
 			}
 
 			h.clearJobList(ctx.ns, ctx.nr)
@@ -106,7 +106,7 @@ func (h *Hub) DeleteTrace(t *v1alpha1.Trace) error {
 		// if our `nsmap` bucket for just the pidnamespace (key) is empty,
 		// we can safely remove the pod from our nsmap
 		if len(h.nsmap[ctx.ns]) == 0 {
-			log.Printf("Removing %d from the nsmap\n", ctx.ns)
+			log.Tracef("Removing %d from the nsmap\n", ctx.ns)
 			delete(h.nsmap, ctx.ns)
 
 		}
@@ -185,7 +185,7 @@ func (h *Hub) Run(ctx context.Context) error {
 					j.Value.(*JobContext).WriteEvent(h, msg)
 				}
 			} else {
-				log.Printf("no jobs matched for %v/%v", msg.PidNamespace, msg.Syscall)
+				log.Tracef("no jobs matched for %v/%v", msg.PidNamespace, msg.Syscall)
 			}
 
 			h.Unlock()

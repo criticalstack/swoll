@@ -2,11 +2,11 @@ package topology
 
 import (
 	"context"
-	"log"
 	"sync"
 
 	"github.com/criticalstack/swoll/pkg/types"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 type EventType int
@@ -75,7 +75,7 @@ func (t *Topology) Run(ctx context.Context, cb OnEventCallback) {
 		case ev := <-ch:
 			t.Lock()
 			if err := t.processEvent(ctx, ev, cb); err != nil {
-				log.Printf("[warning] error processing event: %v", err)
+				log.Warnf("error processing event: %v", err)
 			}
 
 			t.Unlock()
