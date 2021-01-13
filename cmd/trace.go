@@ -219,14 +219,17 @@ var cmdTrace = &cobra.Command{
 				log.Fatal(err)
 			}
 
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
 			go func() {
-				if err := hub.Run(context.Background()); err != nil {
+				if err := hub.Run(ctx); err != nil {
 					log.Fatal(err)
 				}
 			}()
 
 			go func() {
-				if err := hub.RunTrace(trace); err != nil {
+				if err := hub.RunTrace(ctx, trace); err != nil {
 					log.Fatal(err)
 				}
 			}()

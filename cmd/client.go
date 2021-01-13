@@ -59,7 +59,8 @@ var cmdClientDelete = &cobra.Command{
 		}
 
 		jobid := args[0]
-		ctx := context.Background()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
 		for _, ep := range endpoints {
 			fmt.Printf("Deleting %s from %v... ", jobid, ep)
@@ -87,44 +88,44 @@ var cmdClientWatch = &cobra.Command{
 			log.Fatal("nil jobid")
 		}
 
-		stpChan := make(chan bool)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
 		sigChan := make(chan os.Signal)
 		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
 		defer func() {
 			close(sigChan)
-			close(stpChan)
 		}()
 
-		go watchJob(endpoints, jobid, stpChan)
+		go watchJob(ctx, endpoints, jobid)
 
 	Loop:
 		for {
 			<-sigChan
-			stpChan <- true
 			break Loop
 		}
-
 	},
 }
 
-func watchJob(endpoints []*client.Endpoint, id string, stopChan chan bool) {
-	ctx := context.Background()
-
+func watchJob(ctx context.Context, endpoints []*client.Endpoint, id string) {
 	outChan := make(chan *client.StreamMessage)
 	defer close(outChan)
 	wg := sync.WaitGroup{}
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	for _, ep := range endpoints {
 		wg.Add(1)
 		go func(ep *client.Endpoint) {
 			defer wg.Done()
 
-			if err := ep.ReadTraceJob(ctx, id, outChan, stopChan); err != nil {
+			if err := ep.ReadTraceJob(ctx, id, outChan); err != nil {
 				log.Println("Error reading: ", err)
 			}
 
-			<-stopChan
+			<-ctx.Done()
 		}(ep)
 	}
 
@@ -133,7 +134,7 @@ Loop:
 		select {
 		case ev := <-outChan:
 			fmt.Fprintf(os.Stdout, "%s", ev.Data.ColorString())
-		case <-stopChan:
+		case <-ctx.Done():
 			break Loop
 		}
 	}
@@ -244,10 +245,10 @@ var cmdClientCreate = &cobra.Command{
 			jobid = uuid.New().String()
 		}
 
-		ctx := context.Background()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
 		outChan := make(chan *client.StreamMessage)
-		stpChan := make(chan bool)
 		sigChan := make(chan os.Signal, 1)
 
 		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
@@ -267,7 +268,7 @@ var cmdClientCreate = &cobra.Command{
 			if oneshot {
 				wg.Add(1)
 				go func() {
-					if err := ep.ReadTraceJob(ctx, trace.Status.JobID, outChan, stpChan); err != nil {
+					if err := ep.ReadTraceJob(ctx, trace.Status.JobID, outChan); err != nil {
 						log.Println("Error reading", err)
 					}
 
@@ -327,6 +328,8 @@ var cmdClientCreate = &cobra.Command{
 						fmt.Fprintf(os.Stdout, "%s\n", string(j))
 					}
 
+				case <-ctx.Done():
+					break Loop
 				case <-sigChan:
 					break Loop
 				}
@@ -336,13 +339,12 @@ var cmdClientCreate = &cobra.Command{
 
 		// notify all background tasks to stop and cleanup
 		if oneshot {
-			stpChan <- true
+			cancel()
 			wg.Wait()
 		}
 
 		close(outChan)
 		close(sigChan)
-		close(stpChan)
 	},
 }
 

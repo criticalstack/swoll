@@ -41,20 +41,20 @@ type Hub struct {
 }
 
 // RunJob runs a job on the Hub
-func (h *Hub) RunJob(job *Job) error {
-	return job.Run(h, make(chan bool))
+func (h *Hub) RunJob(ctx context.Context, job *Job) error {
+	return job.Run(ctx, h)
 }
 
 // MustRunJob calls hub.RunJob but exits on any errors
-func (h *Hub) MustRunJob(job *Job) {
-	if err := h.RunJob(job); err != nil {
+func (h *Hub) MustRunJob(ctx context.Context, job *Job) {
+	if err := h.RunJob(ctx, job); err != nil {
 		log.Fatal(err)
 	}
 }
 
 // RunTrace runs a TraceJob on the hub
-func (h *Hub) RunTrace(t *v1alpha1.Trace) error {
-	return h.RunJob(NewJob(t))
+func (h *Hub) RunTrace(ctx context.Context, t *v1alpha1.Trace) error {
+	return h.RunJob(ctx, NewJob(t))
 }
 
 // DeleteTrace will stop all the running jobs that are associated with this

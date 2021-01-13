@@ -378,7 +378,7 @@ func createJobHandler(ctx context.Context, hb *hub.Hub) func(http.ResponseWriter
 		}
 
 		// execute the trace in its own goroutine
-		go hb.MustRunJob(job.job)
+		go hb.MustRunJob(ctx, job.job)
 
 		successHandler(w, http.StatusCreated, job)
 	}

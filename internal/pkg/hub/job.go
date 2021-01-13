@@ -82,7 +82,7 @@ func (j *Job) RemoveContainer(pod, name string) {
 // read topology events using the LabelMatch, and for each pod that matches,
 // create the kernel filter if needed, and append the JobContext to the list
 // of running jobs in the Hub.
-func (j *Job) Run(h *Hub, done chan bool) error {
+func (j *Job) Run(ctx context.Context, h *Hub) error {
 	now := metav1.NewTime(time.Now())
 	j.Status.StartTime = &now
 
@@ -101,7 +101,7 @@ func (j *Job) Run(h *Hub, done chan bool) error {
 	topo := topology.NewTopology(kubetop)
 	rdr := reader.NewEventReader(topo)
 	//nolint:errcheck
-	go rdr.Run(context.TODO())
+	go rdr.Run(ctx)
 
 	// these are the list of syscalls which will be used as rules for each
 	// matched container from the topology api.
@@ -183,7 +183,7 @@ func (j *Job) Run(h *Hub, done chan bool) error {
 					}
 				}
 			}
-		case <-done:
+		case <-ctx.Done():
 			return nil
 		}
 	}

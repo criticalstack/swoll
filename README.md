@@ -352,11 +352,9 @@ func main() {
 
 	// connect to a probe running on 172.19.0.3:9095 with SSL disabled
 	ep := client.NewEndpoint("172.19.0.3", 9095, false)
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
 	// channel where events are written to
 	outch := make(chan *client.StreamMessage)
-	// stop all stuff channel
-	stpch := make(chan bool)
 	// signal channel
 	sigch := make(chan os.Signal, 1)
 	signal.Notify(sigch, os.Interrupt, syscall.SIGTERM)
@@ -373,7 +371,7 @@ func main() {
 	go func() {
 		wg.Add(1)
         // Blocking reader 
-		ep.ReadTraceJob(ctx, tr.Status.JobID, outch, stpch)
+		ep.ReadTraceJob(ctx, tr.Status.JobID, outch)
         // If ReadTraceJob returns, let's just delete this current job from the
         // server
 		ep.DeleteTraceJob(ctx, tr.Status.JobID)
@@ -391,7 +389,7 @@ Loop:
 	}
 
     // notify ReadTraceJob to halt.
-	stpch <- true
+    cancel()
     // wait for the job to be deleted
 	wg.Wait()
 }
