@@ -155,6 +155,26 @@ func (j *Job) Run(ctx context.Context, h *Hub) error {
 					// which matches this subset of syscalls..
 					h.PushJob(j, pns, sc.Nr)
 
+					sampleRate := spec.SampleRate
+
+					if sampleRate > 0 {
+						// find the job with the lowest current sampleRate, and
+						// if it is lower than this job's sampleRate, replace it
+						// with this one. The other job's will emulate via
+						// sub-sampling the true samplerate.
+						if lowestJob := h.findLowestSampleJob(sc.Nr, pns); lowestJob != nil && lowestJob.Spec.SampleRate < sampleRate {
+							log.Tracef("[%s/%d] swapping sample-rate for currently running rule to %d\n", j.JobID(), pns, sampleRate)
+							if err := h.filter.RemoveSyscall(sc.Nr, pns); err != nil {
+								log.Warnf("Couldn't remove syscall %v\n", err)
+							}
+						}
+
+						if err := h.filter.AddSampledSyscall(sc.Nr, pns, uint64(sampleRate)); err != nil {
+							log.Warnf("[%s/%d] Error adding syscall kernel-filter for '%s'\n", j.JobID(), pns, sc.Name)
+							return err
+						}
+					}
+
 					// Tell the kernel that we wish to monitor this syscall for
 					// this given pid-namespace.
 					// Note: if the filter already exists, this acts as a NOP.
