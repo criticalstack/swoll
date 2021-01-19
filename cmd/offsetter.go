@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"regexp"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/criticalstack/swoll/pkg/kernel"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -44,7 +44,7 @@ func parseKernelSyms(r io.Reader) kernelSyms {
 func parseKallsyms() kernelSyms {
 	f, err := os.Open("/proc/kallsyms")
 	if err != nil {
-		log.Printf("Failed to open /proc/kallsyms: %s", err.Error())
+		log.Infof("Failed to open /proc/kallsyms: %s", err.Error())
 		return nil
 	}
 	defer f.Close()
@@ -183,7 +183,7 @@ func maxCandidates(candidates map[string]int) (string, int) {
 
 	for k, v := range candidates {
 		if v == mn {
-			log.Printf("warning: same size candidates (%v=%v == %v=%v)\n", k, v, ms, mn)
+			log.Infof("warning: same size candidates (%v=%v == %v=%v)\n", k, v, ms, mn)
 		}
 
 		if v > mn {
@@ -202,12 +202,12 @@ func pidnsCommonLikelyOffset(symfile, corefile string, functions []string) strin
 	for _, fn := range functions {
 		addr, ok := symbols[fn]
 		if !ok {
-			log.Printf("warning: couldnt find address for sym %s", fn)
+			log.Infof("warning: couldnt find address for sym %s", fn)
 		}
 
 		code, err := objdumpAddress(addr, corefile)
 		if err != nil {
-			log.Printf("warning: %s", err.Error())
+			log.Warnf("warning: %s", err.Error())
 			continue
 		}
 
@@ -219,7 +219,7 @@ func pidnsCommonLikelyOffset(symfile, corefile string, functions []string) strin
 	}
 
 	addr, count := maxCandidates(candidates)
-	log.Printf("info: pidns->ns_common likelyOffset addr=%v, count=%v\n", addr, count)
+	log.Infof("info: pidns->ns_common likelyOffset addr=%v, count=%v\n", addr, count)
 	return addr
 
 }
@@ -231,13 +231,13 @@ func nsproxyLikelyOffset(symfile, corefile string, functions []string) string {
 	for _, fn := range functions {
 		addr, ok := symbols[fn]
 		if !ok {
-			log.Printf("warning: couldn't find address for sym %s", fn)
+			log.Warnf("warning: couldn't find address for sym %s", fn)
 			continue
 		}
 
 		code, err := objdumpAddress(addr, corefile)
 		if err != nil {
-			log.Printf("warning: %s", err.Error())
+			log.Warnf("%s", err.Error())
 			continue
 		}
 
@@ -247,7 +247,7 @@ func nsproxyLikelyOffset(symfile, corefile string, functions []string) string {
 	}
 
 	addr, count := maxCandidates(candidates)
-	log.Printf("info: likelyOffset addr=%v, count=%v\n", addr, count)
+	log.Infof("info: likelyOffset addr=%v, count=%v\n", addr, count)
 
 	return addr
 }
@@ -309,7 +309,7 @@ func SetOffsetsFromArgs(probe *kernel.Probe, cmd *cobra.Command, args []string) 
 			log.Fatal(err)
 		}
 
-		log.Printf("Setting task_struct->nsproxy offset to: %x\n", offset)
+		log.Infof("Setting task_struct->nsproxy offset to: %x\n", offset)
 
 		if err := setter.Set("nsproxy", kernel.OffsetValue(offset)); err != nil {
 			return err
@@ -328,7 +328,7 @@ func SetOffsetsFromArgs(probe *kernel.Probe, cmd *cobra.Command, args []string) 
 			log.Fatal(err)
 		}
 
-		log.Printf("Setting pid_namespace->ns offset to: %x\n", offset)
+		log.Infof("Setting pid_namespace->ns offset to: %x\n", offset)
 
 		if err := setter.Set("pid_ns_common", kernel.OffsetValue(offset)); err != nil {
 			return err

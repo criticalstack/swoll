@@ -6,10 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/criticalstack/swoll/api/v1alpha1"
 	"github.com/criticalstack/swoll/pkg/event"
@@ -160,7 +161,7 @@ func (ep *Endpoint) createWebsock(ctx context.Context, url string) (*websocket.C
 	return conn, nil
 }
 
-func (ep *Endpoint) writeWebsock(conn *websocket.Conn, done chan bool) {
+func (ep *Endpoint) writeWebsock(ctx context.Context, conn *websocket.Conn) {
 	t := time.NewTicker(pingPeriod)
 	defer func() {
 		t.Stop()
@@ -171,7 +172,7 @@ func (ep *Endpoint) writeWebsock(conn *websocket.Conn, done chan bool) {
 		select {
 		case <-t.C:
 			if err := conn.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
-				log.Printf("Error setting write deadline: %v", err)
+				log.Warnf("Error setting write deadline: %v", err)
 				return
 			}
 
@@ -179,20 +180,20 @@ func (ep *Endpoint) writeWebsock(conn *websocket.Conn, done chan bool) {
 			message := []byte(fmt.Sprintf("%d", tn.UnixNano()))
 
 			if err := conn.WriteMessage(websocket.PingMessage, message); err != nil {
-				log.Printf("Error writing ping message: %v", err)
+				log.Warnf("Error writing ping message: %v", err)
 				return
 			}
-		case <-done:
+		case <-ctx.Done():
 			return
 		}
 	}
 }
 
 // readWebsock is a blocking function which reads messages from a websocket.
-func (ep *Endpoint) readWebsock(conn *websocket.Conn, ch chan *StreamMessage, done chan bool) error {
+func (ep *Endpoint) readWebsock(ctx context.Context, conn *websocket.Conn, ch chan *StreamMessage) error {
 	conn.SetPingHandler(func(message string) error {
 		select {
-		case <-done:
+		case <-ctx.Done():
 			return conn.Close()
 		default:
 			err := conn.WriteControl(websocket.PongMessage, []byte(message), time.Time{})
@@ -227,7 +228,7 @@ func (ep *Endpoint) readWebsock(conn *websocket.Conn, ch chan *StreamMessage, do
 
 		select {
 		case ch <- &StreamMessage{ep, ev}:
-		case <-done:
+		case <-ctx.Done():
 			return nil
 
 		}
@@ -235,23 +236,17 @@ func (ep *Endpoint) readWebsock(conn *websocket.Conn, ch chan *StreamMessage, do
 }
 
 // ReadTraceJob will read events from the output of a job
-func (ep *Endpoint) ReadTraceJob(inctx context.Context, id string, ch chan *StreamMessage, done chan bool) error {
-	ctx, cancel := context.WithCancel(inctx)
-	defer cancel()
-
+func (ep *Endpoint) ReadTraceJob(ctx context.Context, id string, ch chan *StreamMessage) error {
 	conn, err := ep.createWebsock(ctx, ep.URL(fmt.Sprintf("/jobs/%s/ws", id), true).String())
 	if err != nil {
 		return err
 	}
-	go ep.writeWebsock(conn, done)
-	return ep.readWebsock(conn, ch, done)
+	go ep.writeWebsock(ctx, conn)
+	return ep.readWebsock(ctx, conn, ch)
 }
 
 // DeleteTraceJob will delete the job `id` from the running jobs list
 func (ep *Endpoint) DeleteTraceJob(ctx context.Context, id string) error {
-	_, cancel := context.WithCancel(ctx)
-	defer cancel()
-
 	client := &http.Client{Timeout: time.Duration(0)}
 	request, err := http.NewRequest("DELETE", ep.URL(fmt.Sprintf("/jobs/%s", id), false).String(), nil)
 	if err != nil {
@@ -275,8 +270,8 @@ func (ep *Endpoint) DeleteTraceJob(ctx context.Context, id string) error {
 // job "app=nginx" matches the NS "swoll", POD "pod-A" and the container "container-B", then
 // this can be called ReadTrace(ctx, "swoll", "pod-A", "container-B", ....)
 // to obtain a subset of the stream.
-func (ep *Endpoint) ReadTrace(inctx context.Context, ns, pod, container string, ch chan *StreamMessage, done chan bool) error {
-	ctx, cancel := context.WithCancel(inctx)
+func (ep *Endpoint) ReadTrace(ctx context.Context, ns, pod, container string, ch chan *StreamMessage) error {
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	var uri string
@@ -298,7 +293,7 @@ func (ep *Endpoint) ReadTrace(inctx context.Context, ns, pod, container string, 
 		return err
 	}
 
-	return ep.readWebsock(conn, ch, done)
+	return ep.readWebsock(ctx, conn, ch)
 }
 
 // RunningJobs will return a list of running jobs on the endpoint.

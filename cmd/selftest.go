@@ -3,10 +3,11 @@ package cmd
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 	"regexp"
 	"syscall"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -111,12 +112,12 @@ func checkFeatures() error {
 }
 
 func runSelfTest(fix bool) error {
-	log.Println("checking capabilities")
+	log.Infoln("checking capabilities")
 	if err := checkCapabilities(); err != nil {
 		return err
 	}
 
-	log.Println("checking for proper mounts")
+	log.Infoln("checking for proper mounts")
 	if err := checkMounts(); err != nil {
 		if fix {
 			if err := fixMounts(); err != nil {
@@ -131,7 +132,7 @@ func runSelfTest(fix bool) error {
 		}
 	}
 
-	log.Println("checking kernel-config (if available)")
+	log.Infoln("checking kernel-config (if available)")
 	if err := checkFeatures(); err != nil {
 		if !os.IsNotExist(err) {
 			return err

@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -27,6 +26,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -50,7 +50,7 @@ const (
 	// Time allowed to write to the client.
 	writeWait = 10 * time.Second
 	// Time allowed to read the next pong message from the client.
-	pongWait = 60 * time.Second
+	pongWait = 30 * time.Second
 	// Send pings to client with this period. Must be less than pongWait.
 	pingPeriod = (pongWait * 9) / 10
 	// default namespace is all
@@ -173,7 +173,7 @@ func jobReader(c *websocket.Conn) {
 
 	c.SetReadLimit(1024)
 	if err := c.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
-		log.Printf("Error setting read deadline: %v", err)
+		log.Warnf("Error setting read deadline: %v", err)
 		return
 	}
 
@@ -190,7 +190,7 @@ func jobReader(c *websocket.Conn) {
 	for {
 		if _, _, err := c.ReadMessage(); err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway) {
-				log.Printf("Error: %v", err)
+				log.Warnf("Error: %v", err)
 			}
 			break
 		}
@@ -223,12 +223,12 @@ func jobWriter(job *traceJob, h *hub.Hub, c *websocket.Conn) {
 	for {
 		<-tickr.C
 		if err := c.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
-			log.Printf("Error setting write deadline: %v", err)
+			log.Warnf("Error setting write deadline: %v", err)
 			return
 		}
 
 		if err := c.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
-			log.Printf("Error writing ping message: %v", err)
+			log.Warnf("Error writing ping message: %v", err)
 			return
 		}
 	}
@@ -246,7 +246,7 @@ func traceWriter(paths []string, h *hub.Hub, c *websocket.Conn) {
 	h.AttachPath("running", paths,
 		func(name string, ev *event.TraceEvent) {
 			if err := c.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
-				log.Printf("SetWriteDeadline failed: %v", err)
+				log.Warnf("SetWriteDeadline failed: %v", err)
 				return
 			}
 
@@ -258,12 +258,12 @@ func traceWriter(paths []string, h *hub.Hub, c *websocket.Conn) {
 	for {
 		<-tickr.C
 		if err := c.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
-			log.Printf("SetWriteDeadline failed with error %v", err)
+			log.Warnf("SetWriteDeadline failed with error %v", err)
 			return
 		}
 
 		if err := c.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
-			log.Printf("Error writing ping message: %v", err)
+			log.Warnf("Error writing ping message: %v", err)
 			return
 		}
 	}
@@ -378,7 +378,7 @@ func createJobHandler(ctx context.Context, hb *hub.Hub) func(http.ResponseWriter
 		}
 
 		// execute the trace in its own goroutine
-		go hb.MustRunJob(job.job)
+		go hb.MustRunJob(ctx, job.job)
 
 		successHandler(w, http.StatusCreated, job)
 	}
@@ -725,7 +725,7 @@ func (m *Metrics) sankey(ns, ordString string) *charts.Sankey {
 }
 
 func runServer(cmd *cobra.Command, args []string) {
-	log.Println("Checking install...")
+	log.Infoln("Checking install...")
 	if err := runSelfTest(true); err != nil {
 		log.Fatal(err)
 	}
@@ -932,13 +932,15 @@ func shutdown(server *http.Server) {
 
 	<-c
 
+	log.Infoln("Shutting down....")
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
-		log.Printf("failed to shutdown server\n")
+		log.Warnf("failed to shutdown server %v\n", err)
 		return
 	}
 
-	log.Printf("shutting down server\n")
+	log.Infoln("shutting down server\n")
 }

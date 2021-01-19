@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/signal"
 	"strconv"
@@ -18,8 +17,10 @@ import (
 	"github.com/criticalstack/swoll/pkg/event/call"
 	color "github.com/fatih/color"
 	uuid "github.com/google/uuid"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/yaml"
 )
 
 var cmdClient = &cobra.Command{
@@ -58,7 +59,8 @@ var cmdClientDelete = &cobra.Command{
 		}
 
 		jobid := args[0]
-		ctx := context.Background()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
 		for _, ep := range endpoints {
 			fmt.Printf("Deleting %s from %v... ", jobid, ep)
@@ -86,30 +88,27 @@ var cmdClientWatch = &cobra.Command{
 			log.Fatal("nil jobid")
 		}
 
-		stpChan := make(chan bool)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
 		sigChan := make(chan os.Signal)
 		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
 		defer func() {
 			close(sigChan)
-			close(stpChan)
 		}()
 
-		go watchJob(endpoints, jobid, stpChan)
+		go watchJob(ctx, endpoints, jobid)
 
 	Loop:
 		for {
 			<-sigChan
-			stpChan <- true
 			break Loop
 		}
-
 	},
 }
 
-func watchJob(endpoints []*client.Endpoint, id string, stopChan chan bool) {
-	ctx := context.Background()
-
+func watchJob(ctx context.Context, endpoints []*client.Endpoint, id string) {
 	outChan := make(chan *client.StreamMessage)
 	defer close(outChan)
 	wg := sync.WaitGroup{}
@@ -119,11 +118,11 @@ func watchJob(endpoints []*client.Endpoint, id string, stopChan chan bool) {
 		go func(ep *client.Endpoint) {
 			defer wg.Done()
 
-			if err := ep.ReadTraceJob(ctx, id, outChan, stopChan); err != nil {
-				log.Println("Error reading: ", err)
+			if err := ep.ReadTraceJob(ctx, id, outChan); err != nil {
+				log.Warn("Error reading: ", err)
 			}
 
-			<-stopChan
+			<-ctx.Done()
 		}(ep)
 	}
 
@@ -132,7 +131,7 @@ Loop:
 		select {
 		case ev := <-outChan:
 			fmt.Fprintf(os.Stdout, "%s", ev.Data.ColorString())
-		case <-stopChan:
+		case <-ctx.Done():
 			break Loop
 		}
 	}
@@ -206,8 +205,8 @@ var cmdClientCreate = &cobra.Command{
 				log.Fatal(err)
 			}
 
-			if err = json.Unmarshal(jsFile, &traceSpec); err != nil {
-				log.Fatal(err)
+			if err = yaml.Unmarshal(jsFile, &traceSpec); err != nil {
+				log.Fatalf("failed to read trace specification: %v", err)
 			}
 		}
 
@@ -243,13 +242,21 @@ var cmdClientCreate = &cobra.Command{
 			jobid = uuid.New().String()
 		}
 
-		ctx := context.Background()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
 		outChan := make(chan *client.StreamMessage)
-		stpChan := make(chan bool)
 		sigChan := make(chan os.Signal, 1)
 
+		defer close(outChan)
+
 		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+		go func() {
+			defer close(sigChan)
+			<-sigChan
+			cancel()
+		}()
 
 		var wg sync.WaitGroup
 
@@ -259,19 +266,19 @@ var cmdClientCreate = &cobra.Command{
 				log.Fatal(err)
 			}
 
-			log.Printf("Endpoint %s:%d created %s\n", ep.Hostname, ep.Port, trace.Status.JobID)
+			log.Debugf("Endpoint %s:%d created %s\n", ep.Hostname, ep.Port, trace.Status.JobID)
 
 			// if oneshot is enabled we also start reading from the job, and
 			// delete it once we are done.
 			if oneshot {
 				wg.Add(1)
 				go func() {
-					if err := ep.ReadTraceJob(ctx, trace.Status.JobID, outChan, stpChan); err != nil {
-						log.Println("Error reading", err)
+					if err := ep.ReadTraceJob(ctx, trace.Status.JobID, outChan); err != nil {
+						log.Warn("Error reading", err)
 					}
 
 					if err := ep.DeleteTraceJob(ctx, trace.Status.JobID); err != nil {
-						log.Println("Error deleting", err)
+						log.Warn("Error deleting", err)
 					}
 
 					wg.Done()
@@ -325,7 +332,8 @@ var cmdClientCreate = &cobra.Command{
 						j, _ := json.Marshal(ev)
 						fmt.Fprintf(os.Stdout, "%s\n", string(j))
 					}
-				case <-sigChan:
+
+				case <-ctx.Done():
 					break Loop
 				}
 			}
@@ -333,12 +341,8 @@ var cmdClientCreate = &cobra.Command{
 		}
 
 		// notify all background tasks to stop and cleanup
-		stpChan <- true
 		wg.Wait()
 
-		close(outChan)
-		close(sigChan)
-		close(stpChan)
 	},
 }
 
@@ -369,7 +373,7 @@ func runQuery(cmd *cobra.Command, args []string, completed bool) {
 			continue
 		}
 
-		log.Printf("endpoint=%s:%d\n%s\n", ep.Hostname, ep.Port, string(js))
+		log.Infof("endpoint=%s:%d\n%s\n", ep.Hostname, ep.Port, string(js))
 	}
 }
 

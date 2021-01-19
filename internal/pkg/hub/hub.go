@@ -5,7 +5,6 @@ import (
 	"container/list"
 	"context"
 	"errors"
-	"log"
 	"sync"
 	"time"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/criticalstack/swoll/pkg/kernel/filter"
 	"github.com/criticalstack/swoll/pkg/syscalls"
 	"github.com/criticalstack/swoll/pkg/topology"
+	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -41,23 +41,23 @@ type Hub struct {
 }
 
 // RunJob runs a job on the Hub
-func (h *Hub) RunJob(job *Job) error {
-	return job.Run(h, make(chan bool))
+func (h *Hub) RunJob(ctx context.Context, job *Job) error {
+	return job.Run(ctx, h)
 }
 
 // MustRunJob calls hub.RunJob but exits on any errors
-func (h *Hub) MustRunJob(job *Job) {
-	if err := h.RunJob(job); err != nil {
+func (h *Hub) MustRunJob(ctx context.Context, job *Job) {
+	if err := h.RunJob(ctx, job); err != nil {
 		log.Fatal(err)
 	}
 }
 
 // RunTrace runs a TraceJob on the hub
-func (h *Hub) RunTrace(t *v1alpha1.Trace) error {
-	return h.RunJob(NewJob(t))
+func (h *Hub) RunTrace(ctx context.Context, t *v1alpha1.Trace) error {
+	return h.RunJob(ctx, NewJob(t))
 }
 
-// DeleteTrace will stop all the runninb jobs that are associated with this
+// DeleteTrace will stop all the running jobs that are associated with this
 // Trace specification. using the job-id, we iterate over each context and
 // if there are no other jobs trying to use the syscall and pod associated
 // with this, the kernel filters are removed.
@@ -70,27 +70,28 @@ func (h *Hub) DeleteTrace(t *v1alpha1.Trace) error {
 		return errors.New("job not found")
 	}
 
-	var next *list.Element
-
-	for j := jidlist.Front(); j != nil; j = next {
-		next = j.Next()
+	for j := jidlist.Front(); j != nil; j = j.Next() {
 		ctx := j.Value.(*JobContext)
 
 		// find our bucket in our `nsmap` hash using this
 		// contexts kernel-namespace and syscall-nr.
 		jnslist := h.findJobList(ctx.ns, ctx.nr)
+		if jnslist == nil {
+			log.Warnf("job-namespace-list is nil for %v %v", ctx.ns, ctx.nr)
+			continue
+		}
 
 		// delete this element from the namespace map
-		log.Printf("Removing %s/%s from namespace-list\n", ctx.JobID(), syscalls.Lookup(ctx.nr))
+		log.Tracef("Removing %s/%s from namespace-list\n", ctx.JobID(), syscalls.Lookup(ctx.nr))
 		jnslist.Remove(ctx.nselem)
 
 		// if our `nsmap` is now empty, we can safely remove
 		// this from the running kernel filter.
 		if jnslist.Len() == 0 {
-			log.Printf("Bucket for %s/%s empty, dumping job bucket.\n", ctx.JobID(), syscalls.Lookup(ctx.nr))
+			log.Tracef("Bucket for %s/%s empty, dumping job bucket.\n", ctx.JobID(), syscalls.Lookup(ctx.nr))
 
 			if err := h.filter.RemoveSyscall(ctx.nr, ctx.ns); err != nil {
-				log.Printf("[warn] Failed to remove syscall from kernel-filter: %v", err)
+				log.Warnf("Failed to remove syscall from kernel-filter: %v", err)
 			}
 
 			h.clearJobList(ctx.ns, ctx.nr)
@@ -102,7 +103,7 @@ func (h *Hub) DeleteTrace(t *v1alpha1.Trace) error {
 		// if our `nsmap` bucket for just the pidnamespace (key) is empty,
 		// we can safely remove the pod from our nsmap
 		if len(h.nsmap[ctx.ns]) == 0 {
-			log.Printf("Removing %d from the nsmap\n", ctx.ns)
+			log.Tracef("Removing %d from the nsmap\n", ctx.ns)
 			delete(h.nsmap, ctx.ns)
 
 		}
@@ -181,7 +182,7 @@ func (h *Hub) Run(ctx context.Context) error {
 					j.Value.(*JobContext).WriteEvent(h, msg)
 				}
 			} else {
-				log.Printf("no jobs matched for %v/%v", msg.PidNamespace, msg.Syscall)
+				log.Tracef("no jobs matched for %v/%v", msg.PidNamespace, msg.Syscall)
 			}
 
 			h.Unlock()
@@ -251,6 +252,25 @@ func (h *Hub) PushJob(job *Job, ns, nr int) {
 
 	jobctx.idelem = h.idmap[jobid].PushBack(jobctx)
 
+}
+
+func (h *Hub) findLowestSampleJob(ns, nr int) *JobContext {
+	joblist := h.findJobList(ns, nr)
+	if joblist == nil {
+		return nil
+	}
+
+	min := joblist.Front().Value.(*JobContext)
+
+	for j := joblist.Front(); j != nil; j = j.Next() {
+		ctx := j.Value.(*JobContext)
+
+		if ctx.Spec.SampleRate < min.Spec.SampleRate {
+			min = ctx
+		}
+	}
+
+	return min
 }
 
 // NewHub creates and initializes a Hub context for reading and writing data to

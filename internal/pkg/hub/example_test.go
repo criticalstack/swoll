@@ -74,14 +74,16 @@ func ExampleTrace() {
 		log.Fatal(err)
 	}
 
+	ctx := context.Background()
+
 	//nolint:errcheck
-	go hub.Run(context.TODO())
+	go hub.Run(ctx)
 	//nolint:errcheck
-	go hub.RunTrace(t1)
+	go hub.RunTrace(ctx, t1)
 	//nolint:errcheck
-	go hub.RunTrace(t2)
+	go hub.RunTrace(ctx, t2)
 	//nolint:errcheck
-	go hub.RunTrace(t3)
+	go hub.RunTrace(ctx, t3)
 
 	hub.AttachTrace(t1, printEvent)
 	hub.AttachTrace(t2, printEvent)

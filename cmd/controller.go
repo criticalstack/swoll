@@ -3,11 +3,11 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/criticalstack/swoll/api/v1alpha1"
 	"github.com/criticalstack/swoll/internal/pkg/controller"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -42,10 +42,10 @@ var cmdController = &cobra.Command{
 		}
 
 		if kubeconfig == "" {
-			log.Println("Using in cluster configuration")
+			log.Info("Using in cluster configuration")
 			config, err = kclient.InClusterConfig()
 		} else {
-			log.Println("Using out of cluster configuration")
+			log.Info("Using out of cluster configuration")
 			config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 		}
 		if err != nil {

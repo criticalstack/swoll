@@ -40,6 +40,7 @@ type TraceSpec struct {
 	HostSelector  []string             `json:"hostSelector,omitempty" yaml:"hostSelector,omitempty"`
 	Syscalls      []string             `json:"syscalls,omitempty" yaml:"syscalls,omitempty"`
 	Duration      metav1.Duration      `json:"duration,omitempty" yaml:"duration,omitempty"`
+	SampleRate    int                  `json:"sampleRate,omitempty" yaml:"sampleRate,omitempty"`
 }
 
 // TraceStatus defines the observed state of Trace

@@ -3,7 +3,6 @@ package hub
 import (
 	"container/list"
 	"context"
-	"log"
 	"time"
 
 	"github.com/criticalstack/swoll/api/v1alpha1"
@@ -12,6 +11,7 @@ import (
 	"github.com/criticalstack/swoll/pkg/event/reader"
 	"github.com/criticalstack/swoll/pkg/syscalls"
 	"github.com/criticalstack/swoll/pkg/topology"
+	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -19,6 +19,8 @@ import (
 // Job maintains the general rules for which a trace runs under.
 type Job struct {
 	*v1alpha1.Trace
+	sampled        int
+	emulateSamples bool
 	monitoredHosts map[string]bool
 }
 
@@ -54,26 +56,33 @@ type JobList struct {
 	*list.List
 }
 
+// createJobKey generates a formatted key to use with container additions
+func createJobKey(pod, name string) string {
+	return name + "." + pod
+}
+
 // AddContainer tells the job to monitor a very specific container in a specific
 // pod.
 func (j *Job) AddContainer(pod, name string) {
-	if _, ok := j.monitoredHosts[name+"."+pod]; ok {
+	key := createJobKey(pod, name)
+
+	if _, ok := j.monitoredHosts[key]; ok {
 		return
 	}
 
-	j.monitoredHosts[name+"."+pod] = true
+	j.monitoredHosts[key] = true
 }
 
 // RemoveContainer removes the watch for a specific container in a specific pod
 func (j *Job) RemoveContainer(pod, name string) {
-	j.monitoredHosts[name+"."+pod] = false
+	j.monitoredHosts[createJobKey(pod, name)] = false
 }
 
 // Run will run a job inside the Hub. The primary goal of this function is to
 // read topology events using the LabelMatch, and for each pod that matches,
 // create the kernel filter if needed, and append the JobContext to the list
 // of running jobs in the Hub.
-func (j *Job) Run(h *Hub, done chan bool) error {
+func (j *Job) Run(ctx context.Context, h *Hub) error {
 	now := metav1.NewTime(time.Now())
 	j.Status.StartTime = &now
 
@@ -92,7 +101,7 @@ func (j *Job) Run(h *Hub, done chan bool) error {
 	topo := topology.NewTopology(kubetop)
 	rdr := reader.NewEventReader(topo)
 	//nolint:errcheck
-	go rdr.Run(context.TODO())
+	go rdr.Run(ctx)
 
 	// these are the list of syscalls which will be used as rules for each
 	// matched container from the topology api.
@@ -140,31 +149,53 @@ func (j *Job) Run(h *Hub, done chan bool) error {
 				// got a new container that matched, for each syscall, push a
 				// job up that associates pidns+syscallNR with this job
 				for _, sc := range calls {
-					log.Printf("[%s/%d] Adding syscall '%s' to kernel-filter\n", j.JobID(), pns, sc.Name)
+					log.Tracef("[%s/%d] Adding syscall '%s' to kernel-filter\n", j.JobID(), pns, sc.Name)
 
 					// This will create a sub-filter off of the pid-namespace
 					// which matches this subset of syscalls..
 					h.PushJob(j, pns, sc.Nr)
 
+					sampleRate := spec.SampleRate
+
+					if sampleRate > 0 {
+						// find the job with the lowest current sampleRate, and
+						// if it is lower than this job's sampleRate, replace it
+						// with this one. The other job's will emulate via
+						// sub-sampling the true samplerate.
+						if lowestJob := h.findLowestSampleJob(sc.Nr, pns); lowestJob != nil && lowestJob.Spec.SampleRate < sampleRate {
+							log.Tracef("[%s/%d] swapping sample-rate for currently running rule to %d\n", j.JobID(), pns, sampleRate)
+							if err := h.filter.RemoveSyscall(sc.Nr, pns); err != nil {
+								log.Warnf("Couldn't remove syscall %v\n", err)
+							}
+						}
+
+						if err := h.filter.AddSampledSyscall(sc.Nr, pns, uint64(sampleRate)); err != nil {
+							log.Warnf("[%s/%d] Error adding syscall kernel-filter for '%s'\n", j.JobID(), pns, sc.Name)
+							return err
+						}
+					}
+
 					// Tell the kernel that we wish to monitor this syscall for
 					// this given pid-namespace.
 					// Note: if the filter already exists, this acts as a NOP.
 					if err := h.filter.AddSyscall(sc.Nr, pns); err != nil {
-						log.Printf("[%s/%d] Error adding syscall kernel-filter for '%s'\n", j.JobID(), pns, sc.Name)
+						log.Warnf("[%s/%d] Error adding syscall kernel-filter for '%s'\n", j.JobID(), pns, sc.Name)
 						return err
 					}
 				}
 
 			case event.ContainerDelEvent:
-				// container that matched our labels is being removed from the cluster.
+				// container that matched our labels is being removed from the
+				// cluster. Knowing that this container no longer exists, we
+				// can remove the associated global kernel filters.
 				pns := ev.PidNamespace
 				j.RemoveContainer(ev.Pod, ev.Name)
 
 				for _, sc := range calls {
-					log.Printf("[%s/%d] removing syscall '%s' to kernel-filter\n", j.JobID(), pns, sc.Name)
+					log.Tracef("[%s/%d] removing syscall '%s' to kernel-filter\n", j.JobID(), pns, sc.Name)
 
 					if err := h.filter.RemoveSyscall(sc.Nr, pns); err != nil {
-						log.Printf("[%s/%d] failed to remove syscall '%s' from kernel-filter\n", j.JobID(), pns, sc.Name)
+						log.Warnf("[%s/%d] failed to remove syscall '%s' from kernel-filter\n", j.JobID(), pns, sc.Name)
 
 						// XXX[lz]: just continue on for now - but we should
 						// really think about what to do in cases like this as
@@ -172,7 +203,7 @@ func (j *Job) Run(h *Hub, done chan bool) error {
 					}
 				}
 			}
-		case <-done:
+		case <-ctx.Done():
 			return nil
 		}
 	}
@@ -180,8 +211,53 @@ func (j *Job) Run(h *Hub, done chan bool) error {
 
 // WriteEvent writes event `ev` to all listeners of this `Job`
 func (j *Job) WriteEvent(h *Hub, ev *event.TraceEvent) {
-	h.ps.Publish(ev, pubsub.LinearTreeTraverser(
-		hashPath(swJobStream, j.JobID())))
+	if j.Spec.SampleRate > 0 {
+		// if this job is marked as sampled, and there are other jobs running
+		// that are sampling at a different rate for the same data from the
+		// kernel, we must emulate the rate in which was requested for this
+		// specific rule.
+		//
+		// we do this by finding the lowest-sample config value for this
+		// pid_namespace+syscall_nr configured in the kernel. We create a
+		// sub-sample value based off this returned value and this job's sample
+		// rate so that sampling-a-sample will be statistically correct.
+		//
+		// For example, if we have 8 events, e1...e8, and three rules which
+		// match the same host+syscall,
+		// r1: sample=1 // 1:1 sampling, e.g., ALL
+		// r2: sample=2
+		// r3: sample=4
+		//
+		// r1 will match on e1,e2,e3,e4,e5,e6,e7,e8 (kernel sampled)
+		// r2 will match on e2,e4,e6,e8             (emulated sampled)
+		// r3 will match on e4,e8                   (emulated sampled)
+		j.sampled++
+
+		// find the job context for this specific namespace and syscall-nr that
+		// has the lowest sample-rate.
+		jctx := h.findLowestSampleJob(ev.PidNamespace, ev.Syscall.Nr)
+		if jctx.Job == j {
+			// this job is the holder of the lowest sample rate.
+			// so we can calculate the sub-sample value directly using this jobs
+			// rate.
+			if j.sampled%j.Spec.SampleRate == 0 {
+				log.Tracef("[%s] job is already lowest sample-rate, Sending sampled %d\n", j.JobID(), j.sampled)
+				h.ps.Publish(ev, pubsub.LinearTreeTraverser(hashPath(swJobStream, j.JobID())))
+			}
+		} else {
+			// this job is NOT the holder of the lowest sample rate. So we
+			// subtract the lowst known sample rate from this sample rate to
+			// create a subsample value.
+			subsample := j.Spec.SampleRate - jctx.Spec.SampleRate
+			if j.sampled%subsample == 0 {
+				log.Tracef("[%s] job is a sub-sample, sending %d\n", j.JobID(), j.sampled)
+				h.ps.Publish(ev, pubsub.LinearTreeTraverser(hashPath(swJobStream, j.JobID())))
+			}
+		}
+	} else {
+		log.Tracef("[%s] job has no sample-rate, Sending %d\n", j.JobID(), j.sampled)
+		h.ps.Publish(ev, pubsub.LinearTreeTraverser(hashPath(swJobStream, j.JobID())))
+	}
 }
 
 // TraceSpec returns the `TraceSpec` defined for this `Job`
