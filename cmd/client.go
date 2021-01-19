@@ -251,7 +251,15 @@ var cmdClientCreate = &cobra.Command{
 		outChan := make(chan *client.StreamMessage)
 		sigChan := make(chan os.Signal, 1)
 
+		defer close(outChan)
+
 		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+		go func() {
+			defer close(sigChan)
+			<-sigChan
+			cancel()
+		}()
 
 		var wg sync.WaitGroup
 
@@ -330,21 +338,14 @@ var cmdClientCreate = &cobra.Command{
 
 				case <-ctx.Done():
 					break Loop
-				case <-sigChan:
-					break Loop
 				}
 			}
 
 		}
 
 		// notify all background tasks to stop and cleanup
-		if oneshot {
-			cancel()
-			wg.Wait()
-		}
+		wg.Wait()
 
-		close(outChan)
-		close(sigChan)
 	},
 }
 
