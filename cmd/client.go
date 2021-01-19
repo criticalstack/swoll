@@ -19,8 +19,8 @@ import (
 	uuid "github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/yaml"
 )
 
 var cmdClient = &cobra.Command{
@@ -112,9 +112,6 @@ func watchJob(ctx context.Context, endpoints []*client.Endpoint, id string) {
 	outChan := make(chan *client.StreamMessage)
 	defer close(outChan)
 	wg := sync.WaitGroup{}
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 
 	for _, ep := range endpoints {
 		wg.Add(1)

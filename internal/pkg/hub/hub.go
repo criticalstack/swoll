@@ -70,10 +70,7 @@ func (h *Hub) DeleteTrace(t *v1alpha1.Trace) error {
 		return errors.New("job not found")
 	}
 
-	var next *list.Element
-
-	for j := jidlist.Front(); j != nil; j = next {
-		next = j.Next()
+	for j := jidlist.Front(); j != nil; j = j.Next() {
 		ctx := j.Value.(*JobContext)
 
 		// find our bucket in our `nsmap` hash using this
@@ -265,10 +262,7 @@ func (h *Hub) findLowestSampleJob(ns, nr int) *JobContext {
 
 	min := joblist.Front().Value.(*JobContext)
 
-	var next *list.Element
-
-	for j := joblist.Front(); j != nil; j = next {
-		next = j.Next()
+	for j := joblist.Front(); j != nil; j = j.Next() {
 		ctx := j.Value.(*JobContext)
 
 		if ctx.Spec.SampleRate < min.Spec.SampleRate {
