@@ -14,6 +14,7 @@ import (
 	"github.com/criticalstack/swoll/pkg/event/reader"
 	"github.com/criticalstack/swoll/pkg/kernel"
 	"github.com/criticalstack/swoll/pkg/kernel/filter"
+	"github.com/criticalstack/swoll/pkg/kernel/metrics"
 	"github.com/criticalstack/swoll/pkg/syscalls"
 	"github.com/criticalstack/swoll/pkg/topology"
 	log "github.com/sirupsen/logrus"
@@ -36,7 +37,8 @@ type Hub struct {
 	filter *filter.Filter
 	// the topology context for this hub which is used for resolving kernel
 	// namespaces to pods/containers
-	topo *topology.Topology
+	topo          *topology.Topology
+	statsInterval time.Duration
 	sync.Mutex
 }
 
@@ -70,7 +72,10 @@ func (h *Hub) DeleteTrace(t *v1alpha1.Trace) error {
 		return errors.New("job not found")
 	}
 
-	for j := jidlist.Front(); j != nil; j = j.Next() {
+	var next *list.Element
+
+	for j := jidlist.Front(); j != nil; j = next {
+		next = j.Next()
 		ctx := j.Value.(*JobContext)
 
 		// find our bucket in our `nsmap` hash using this
@@ -147,13 +152,37 @@ func (h *Hub) Run(ctx context.Context) error {
 	// nolint:errcheck
 	go topordr.Run(ctx)
 
+	mhandler := metrics.NewHandler(h.probe.Module())
+	sinterval := h.statsInterval
+	if sinterval == 0 {
+		sinterval = 5 * time.Second
+	}
+
+	stattick := time.NewTicker(sinterval)
+
 	msg := new(event.TraceEvent).WithTopology(h.topo)
 
 	for {
 		select {
-		case <-topordr.Read():
+		case <-stattick.C:
+			log.Infof("allocated-metric-nodes: %v", len(mhandler.QueryAll()))
+
+		case ev := <-topordr.Read():
 			// we keep an active podmon reader available for kernel-namespace to
 			// container resolution
+			switch ev := ev.(type) {
+			case event.ContainerAddEvent:
+				log.Tracef("adding container to metrics watcher: %s", ev.Container.FQDN())
+
+				h.filter.AddMetrics(ev.PidNamespace)
+			case event.ContainerDelEvent:
+				log.Tracef("removing/pruning container from metrics watcher: %s", ev.Container.FQDN())
+
+				h.filter.RemoveMetrics(ev.PidNamespace)
+				mhandler.PruneNamespace(ev.PidNamespace)
+
+			}
+
 		case ev := <-proberdr.Read():
 			// read a single event from the kernel, allcoate empty TraceEvent,
 			// initialize the underlying with the topology resolver
@@ -301,6 +330,11 @@ func NewHub(config *Config, observer topology.Observer) (*Hub, error) {
 	// we need to have at least one syscall in our filter (which will never
 	// actually match anything) when we start with a clean slate.
 	if err := filter.AddSyscall("sys_set_tid_address", 0); err != nil {
+		return nil, err
+	}
+
+	// add a stub/dummy metrics filter so we don't dump everything.
+	if err := filter.AddMetrics(31337); err != nil {
 		return nil, err
 	}
 

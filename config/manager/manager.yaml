@@ -28,7 +28,7 @@ spec:
         - controller
         - --enable-leader-election
         - --image
-        - criticalstack/swoll:latest
+        - cinderegg:5000/swoll:latest 
         image: criticalstack/swoll:latest
         name: manager
         resources:

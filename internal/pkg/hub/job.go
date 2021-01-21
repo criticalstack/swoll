@@ -20,7 +20,6 @@ import (
 type Job struct {
 	*v1alpha1.Trace
 	sampled        int
-	emulateSamples bool
 	monitoredHosts map[string]bool
 }
 
@@ -255,7 +254,6 @@ func (j *Job) WriteEvent(h *Hub, ev *event.TraceEvent) {
 			}
 		}
 	} else {
-		log.Tracef("[%s] job has no sample-rate, Sending %d\n", j.JobID(), j.sampled)
 		h.ps.Publish(ev, pubsub.LinearTreeTraverser(hashPath(swJobStream, j.JobID())))
 	}
 }

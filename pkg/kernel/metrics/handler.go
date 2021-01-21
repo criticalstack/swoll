@@ -4,6 +4,7 @@ import (
 	"unsafe"
 
 	"github.com/iovisor/gobpf/elf"
+	log "github.com/sirupsen/logrus"
 )
 
 type Handler struct {
@@ -16,6 +17,38 @@ func NewHandler(mod *elf.Module) *Handler {
 		module: mod,
 		table:  mod.Map("swoll_metrics"),
 	}
+}
+
+func (h *Handler) PruneNamespace(ns int) error {
+	k := &key{}
+	v := &val{}
+	n := &key{}
+	toDelete := make([]*key, 0)
+
+	for {
+		more, _ := h.module.LookupNextElement(h.table,
+			unsafe.Pointer(k),
+			unsafe.Pointer(n),
+			unsafe.Pointer(v))
+		if !more {
+			break
+		}
+
+		k = n
+
+		if k.pidNs == uint32(ns) {
+			toDelete = append(toDelete, k.copy())
+		}
+
+	}
+
+	log.Tracef("Pruning %d entries from metrics filter\n", len(toDelete))
+
+	for _, ent := range toDelete {
+		h.module.DeleteElement(h.table, unsafe.Pointer(ent))
+	}
+
+	return nil
 }
 
 func (h *Handler) QueryAll() Metrics {

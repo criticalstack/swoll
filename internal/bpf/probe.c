@@ -162,6 +162,7 @@ struct ipc_namespace {
 #define SWOLL_FILTER_MODE_BLACKLIST        (1 << 1)
 #define SWOLL_FILTER_MODE_GLOBAL_WHITELIST (1 << 2)
 #define SWOLL_FILTER_MODE_GLOBAL_BLACKLIST (1 << 3)
+#define SWOLL_FILTER_TYPE_METRICS          (1 << 12)
 #define SWOLL_FILTER_TYPE_SYSCALL          (1 << 13)
 #define SWOLL_FILTER_TYPE_PID              (1 << 14)
 #define SWOLL_FILTER_TYPE_PIDNS            (1 << 15)
@@ -1374,7 +1375,7 @@ swoll__syscall_get_nr(struct swoll_event_args * args)
 }
 
 static _inline __u8
-swoll__run_filter(struct swoll_event_args * ctx)
+swoll__run_syscall_filter(struct swoll_event_args * ctx)
 {
     __u32                syscall_nr;
     __u32                tid;
@@ -1417,7 +1418,7 @@ swoll__run_filter(struct swoll_event_args * ctx)
 
 
     return SWOLL_FILTER_ALLOW;
-}     /* swoll__run_filter */
+}     /* swoll__run_syscall_filter */
 
 #define METRICS_STATE_ENTER 0x01
 #define METRICS_STATE_EXIT  0x02
@@ -1503,31 +1504,42 @@ swoll__update_metrics_ktime(const __u32 pid_ns, const __u32 nr)
 static _inline void
 swoll__fill_metrics(struct swoll_event_args * ctx, __u8 state)
 {
-    if (ctx) {
-        struct task_struct * task   = (struct task_struct *)bpf_get_current_task();
-        __u32                pid_ns = swoll__task_pid_namespace(task);
-        __u32                nr     = swoll__syscall_get_nr(ctx);
+    if (ctx == NULL) {
+        return;
+    }
 
-        if (nr == 0xFFFFFFFF) {
+
+
+    struct task_struct * task   = (struct task_struct *)bpf_get_current_task();
+    __u32                pid_ns = swoll__task_pid_namespace(task);
+
+    if (swoll__is_filter_enabled(SWOLL_FILTER_MODE_GLOBAL_WHITELIST | SWOLL_FILTER_TYPE_METRICS)) {
+        if (swoll__eval_filter(SWOLL_FILTER_MODE_GLOBAL_WHITELIST | SWOLL_FILTER_TYPE_METRICS, pid_ns, 0)) {
             return;
         }
+    }
 
-        switch (state) {
-            case METRICS_STATE_ENTER:
-                /* upon syscall entry, we don't update stats quite yet,
-                 * we wait for the EXIT state so we can calculate total
-                 * time spent in each call.
-                 */
-                swoll__update_metrics_ktime(pid_ns, nr);
-                break;
-            case METRICS_STATE_EXIT:
-            {
-                __s32 err = (int)ctx->on_exit.ret < 0 ? -(int)ctx->on_exit.ret : 0;
+    __u32 nr = swoll__syscall_get_nr(ctx);
 
-                swoll__update_metrics(pid_ns, nr, err);
-            }
+    if (nr == 0xFFFFFFFF) {
+        return;
+    }
+
+    switch (state) {
+        case METRICS_STATE_ENTER:
+            /* upon syscall entry, we don't update stats quite yet,
+             * we wait for the EXIT state so we can calculate total
+             * time spent in each call.
+             */
+            swoll__update_metrics_ktime(pid_ns, nr);
             break;
+        case METRICS_STATE_EXIT:
+        {
+            __s32 err = (int)ctx->on_exit.ret < 0 ? -(int)ctx->on_exit.ret : 0;
+
+            swoll__update_metrics(pid_ns, nr, err);
         }
+        break;
     }
 }
 
@@ -2517,7 +2529,7 @@ swoll__enter(struct swoll_event_args * ctx)
         return 0;
     }
 
-    if (swoll__run_filter(ctx) == SWOLL_FILTER_DROP) {
+    if (swoll__run_syscall_filter(ctx) == SWOLL_FILTER_DROP) {
         return 0;
     }
 
@@ -2698,7 +2710,7 @@ swoll__syscalls_execve(struct swoll_event_args * ctx)
     __u64                tid   = bpf_get_current_pid_tgid() >> 32;
     struct task_struct * task  = (struct task_struct *)bpf_get_current_task();
 
-    if (swoll__run_filter(ctx) == SWOLL_FILTER_DROP) {
+    if (swoll__run_syscall_filter(ctx) == SWOLL_FILTER_DROP) {
         return 0;
     }
 

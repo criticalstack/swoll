@@ -265,7 +265,6 @@ func SetOffsetsFromArgs(probe *kernel.Probe, cmd *cobra.Command, args []string) 
 		nsproxyOffset = nsproxyLikelyOffset("/proc/kallsyms", "/proc/kcore",
 			[]string{
 				"ipcns_get",
-				"utcns_get",
 				"mntns_get",
 				"cgroupns_get",
 				"netns_get",
