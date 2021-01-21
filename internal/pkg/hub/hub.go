@@ -155,7 +155,8 @@ func (h *Hub) Run(ctx context.Context) error {
 	mhandler := metrics.NewHandler(h.probe.Module())
 	sinterval := h.statsInterval
 	if sinterval == 0 {
-		sinterval = 5 * time.Second
+		// default the stats interval to 10 seconds.
+		sinterval = 10 * time.Second
 	}
 
 	stattick := time.NewTicker(sinterval)
@@ -165,8 +166,7 @@ func (h *Hub) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-stattick.C:
-			log.Infof("allocated-metric-nodes: %v", len(mhandler.QueryAll()))
-
+			log.Debugf("allocated-metric-nodes: %v", len(mhandler.QueryAll()))
 		case ev := <-topordr.Read():
 			// we keep an active podmon reader available for kernel-namespace to
 			// container resolution
@@ -174,13 +174,23 @@ func (h *Hub) Run(ctx context.Context) error {
 			case event.ContainerAddEvent:
 				log.Tracef("adding container to metrics watcher: %s", ev.Container.FQDN())
 
-				h.filter.AddMetrics(ev.PidNamespace)
+				if err := h.filter.AddMetrics(ev.PidNamespace); err != nil {
+					log.Warnf("failed to add kernel-metric filter for %s: %v", ev.Container.FQDN(), err)
+				}
+
 			case event.ContainerDelEvent:
 				log.Tracef("removing/pruning container from metrics watcher: %s", ev.Container.FQDN())
 
-				h.filter.RemoveMetrics(ev.PidNamespace)
-				mhandler.PruneNamespace(ev.PidNamespace)
+				if err := h.filter.RemoveMetrics(ev.PidNamespace); err != nil {
+					log.Warnf("failed to remove kernel-metric filter for %s: %v", ev.Container.FQDN(), err)
+				}
 
+				pruned, err := mhandler.PruneNamespace(ev.PidNamespace)
+				if err != nil {
+					log.Warnf("failed to prune metrics for %s: %v", ev.Container.FQDN(), err)
+				}
+
+				log.Tracef("pruned %d metrics for %s: %v", pruned, ev.Container.FQDN())
 			}
 
 		case ev := <-proberdr.Read():

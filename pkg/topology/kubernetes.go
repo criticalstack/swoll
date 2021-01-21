@@ -226,13 +226,11 @@ func (k *Kubernetes) criContainers(ctx context.Context, match ...*matchPod) ([]*
 
 	// we only care about containers that are marked as running
 	request := &pb.ListContainersRequest{
-		/*
-			Filter: &pb.ContainerFilter{
-				State: &pb.ContainerStateValue{
-					//State: pb.ContainerState_CONTAINER_RUNNING,
-				},
+		Filter: &pb.ContainerFilter{
+			State: &pb.ContainerStateValue{
+				State: pb.ContainerState_CONTAINER_RUNNING,
 			},
-		*/
+		},
 	}
 
 	rpc := pb.NewRuntimeServiceClient(k.criClient)
@@ -264,16 +262,12 @@ func (k *Kubernetes) criContainers(ctx context.Context, match ...*matchPod) ([]*
 
 			m := match[0]
 
-			//log.Tracef("matching: this=%s.%s that=%s.%s\n", pod, kns, m.podName, m.podNamespace)
-
 			if m.podName != pod || m.podNamespace != kns {
 				// this CRI container did not match the optional match argument,
 				// so skip insertion into our final result.
 				continue
 			}
 		}
-
-		//log.Tracef("Got a match for %s.%s\n", match[0].podName, match[0].podNamespace)
 
 		id := container.GetId()
 		pid, err := k.getContainerPid(ctx, id)

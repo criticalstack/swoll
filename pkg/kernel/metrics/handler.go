@@ -4,7 +4,6 @@ import (
 	"unsafe"
 
 	"github.com/iovisor/gobpf/elf"
-	log "github.com/sirupsen/logrus"
 )
 
 type Handler struct {
@@ -19,7 +18,7 @@ func NewHandler(mod *elf.Module) *Handler {
 	}
 }
 
-func (h *Handler) PruneNamespace(ns int) error {
+func (h *Handler) PruneNamespace(ns int) (int, error) {
 	k := &key{}
 	v := &val{}
 	n := &key{}
@@ -42,13 +41,11 @@ func (h *Handler) PruneNamespace(ns int) error {
 
 	}
 
-	log.Tracef("Pruning %d entries from metrics filter\n", len(toDelete))
-
 	for _, ent := range toDelete {
 		h.module.DeleteElement(h.table, unsafe.Pointer(ent))
 	}
 
-	return nil
+	return len(toDelete), nil
 }
 
 func (h *Handler) QueryAll() Metrics {
