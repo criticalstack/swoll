@@ -190,7 +190,7 @@ func (h *Hub) Run(ctx context.Context) error {
 					log.Warnf("failed to prune metrics for %s: %v", ev.Container.FQDN(), err)
 				}
 
-				log.Tracef("pruned %d metrics for %s: %v", pruned, ev.Container.FQDN())
+				log.Tracef("pruned %d metrics for %s", pruned, ev.Container.FQDN())
 			}
 
 		case ev := <-proberdr.Read():
