@@ -21,6 +21,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// a stub namespace we use to "prime" the metrics filter,
+	// so the kernel-filter does not start
+	// monitoring everything. This number is low
+	// enough that a real namespace (32b) will never
+	// be this value
+	stubMetricsFilterNS = 31337
+	stubSyscallFilter   = "sys_set_tid_address" // a stub syscall we use to "prime" the kernel syscall-filter
+)
+
 // Hub maintains the global kernel probe and all the underlying
 // filters and event message routing.
 type Hub struct {
@@ -339,12 +349,12 @@ func NewHub(config *Config, observer topology.Observer) (*Hub, error) {
 
 	// we need to have at least one syscall in our filter (which will never
 	// actually match anything) when we start with a clean slate.
-	if err := filter.AddSyscall("sys_set_tid_address", 0); err != nil {
+	if err := filter.AddSyscall(stubSyscallFilter, 0); err != nil {
 		return nil, err
 	}
 
 	// add a stub/dummy metrics filter so we don't dump everything.
-	if err := filter.AddMetrics(31337); err != nil {
+	if err := filter.AddMetrics(stubMetricsFilterNS); err != nil {
 		return nil, err
 	}
 

@@ -373,7 +373,7 @@ func (k *Kubernetes) Run(ctx context.Context, out chan<- *ObservationEvent) {
 				// set as Running. So when we see an update with both old and
 				// new status.phase=Running, we update a small cache for future
 				// DeleteFunc calls to fetch the containers that WERE running
-				// (though abiet stale).
+				// (though a bit stale).
 				key := newpod.Name + "." + newpod.Namespace
 
 				if _, ok := phasedCache[key]; !ok {
