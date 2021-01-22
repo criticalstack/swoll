@@ -27,6 +27,7 @@ const (
 	ModeBlacklist       Type = 1 << 1
 	ModeGlobalWhitelist Type = 1 << 2
 	ModeGlobalBlacklist Type = 1 << 3
+	TypeMetrics         Type = 1 << 12
 	TypeSyscall         Type = 1 << 13
 	TypePid             Type = 1 << 14
 	TypePidns           Type = 1 << 15
@@ -189,6 +190,14 @@ func (f *Filter) AddSyscall(nr interface{}, ns int) error {
 	} else {
 		return f.add(ModeGlobalWhitelist|TypeSyscall, 0, sc.Nr)
 	}
+}
+
+func (f *Filter) AddMetrics(ns int) error {
+	return f.add(ModeGlobalWhitelist|TypeMetrics, ns, 0)
+}
+
+func (f *Filter) RemoveMetrics(ns int) error {
+	return f.del(ModeGlobalWhitelist|TypeMetrics, ns, 0)
 }
 
 func (f *Filter) AddSampledSyscall(nr interface{}, ns int, rate uint64) error {

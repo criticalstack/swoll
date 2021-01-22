@@ -14,10 +14,21 @@ import (
 	"github.com/criticalstack/swoll/pkg/event/reader"
 	"github.com/criticalstack/swoll/pkg/kernel"
 	"github.com/criticalstack/swoll/pkg/kernel/filter"
+	"github.com/criticalstack/swoll/pkg/kernel/metrics"
 	"github.com/criticalstack/swoll/pkg/syscalls"
 	"github.com/criticalstack/swoll/pkg/topology"
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	// a stub namespace we use to "prime" the metrics filter,
+	// so the kernel-filter does not start
+	// monitoring everything. This number is low
+	// enough that a real namespace (32b) will never
+	// be this value
+	stubMetricsFilterNS = 31337
+	stubSyscallFilter   = "sys_set_tid_address" // a stub syscall we use to "prime" the kernel syscall-filter
 )
 
 // Hub maintains the global kernel probe and all the underlying
@@ -36,7 +47,8 @@ type Hub struct {
 	filter *filter.Filter
 	// the topology context for this hub which is used for resolving kernel
 	// namespaces to pods/containers
-	topo *topology.Topology
+	topo          *topology.Topology
+	statsInterval time.Duration
 	sync.Mutex
 }
 
@@ -70,7 +82,10 @@ func (h *Hub) DeleteTrace(t *v1alpha1.Trace) error {
 		return errors.New("job not found")
 	}
 
-	for j := jidlist.Front(); j != nil; j = j.Next() {
+	var next *list.Element
+
+	for j := jidlist.Front(); j != nil; j = next {
+		next = j.Next()
 		ctx := j.Value.(*JobContext)
 
 		// find our bucket in our `nsmap` hash using this
@@ -147,13 +162,47 @@ func (h *Hub) Run(ctx context.Context) error {
 	// nolint:errcheck
 	go topordr.Run(ctx)
 
+	mhandler := metrics.NewHandler(h.probe.Module())
+	sinterval := h.statsInterval
+	if sinterval == 0 {
+		// default the stats interval to 10 seconds.
+		sinterval = 10 * time.Second
+	}
+
+	stattick := time.NewTicker(sinterval)
+
 	msg := new(event.TraceEvent).WithTopology(h.topo)
 
 	for {
 		select {
-		case <-topordr.Read():
+		case <-stattick.C:
+			log.Debugf("allocated-metric-nodes: %v", len(mhandler.QueryAll()))
+		case ev := <-topordr.Read():
 			// we keep an active podmon reader available for kernel-namespace to
 			// container resolution
+			switch ev := ev.(type) {
+			case event.ContainerAddEvent:
+				log.Tracef("adding container to metrics watcher: %s", ev.Container.FQDN())
+
+				if err := h.filter.AddMetrics(ev.PidNamespace); err != nil {
+					log.Warnf("failed to add kernel-metric filter for %s: %v", ev.Container.FQDN(), err)
+				}
+
+			case event.ContainerDelEvent:
+				log.Tracef("removing/pruning container from metrics watcher: %s", ev.Container.FQDN())
+
+				if err := h.filter.RemoveMetrics(ev.PidNamespace); err != nil {
+					log.Warnf("failed to remove kernel-metric filter for %s: %v", ev.Container.FQDN(), err)
+				}
+
+				pruned, err := mhandler.PruneNamespace(ev.PidNamespace)
+				if err != nil {
+					log.Warnf("failed to prune metrics for %s: %v", ev.Container.FQDN(), err)
+				}
+
+				log.Tracef("pruned %d metrics for %s", pruned, ev.Container.FQDN())
+			}
+
 		case ev := <-proberdr.Read():
 			// read a single event from the kernel, allcoate empty TraceEvent,
 			// initialize the underlying with the topology resolver
@@ -300,7 +349,12 @@ func NewHub(config *Config, observer topology.Observer) (*Hub, error) {
 
 	// we need to have at least one syscall in our filter (which will never
 	// actually match anything) when we start with a clean slate.
-	if err := filter.AddSyscall("sys_set_tid_address", 0); err != nil {
+	if err := filter.AddSyscall(stubSyscallFilter, 0); err != nil {
+		return nil, err
+	}
+
+	// add a stub/dummy metrics filter so we don't dump everything.
+	if err := filter.AddMetrics(stubMetricsFilterNS); err != nil {
 		return nil, err
 	}
 
