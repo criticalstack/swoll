@@ -234,7 +234,8 @@ func (ev *TraceEvent) Ingest(data interface{}) (*TraceEvent, error) {
 
 	callData, err := call.DecodeSyscall(int(rawEvent.Syscall), rawEvent.Args(), rawEvent.ArgLen())
 	if err != nil {
-		return nil, err
+		fmt.Println(err)
+		callData = data
 	}
 
 	ev.PidNamespace = int(rawEvent.PidNS)

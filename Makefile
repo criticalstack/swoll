@@ -38,7 +38,7 @@ swoll: bindata ## Build the swoll binary
 
 ## Build the BPF probe and generate embedded asset file
 bindata: $(GOBINDATA) bpf
-	$(GOBINDATA) -nometadata -nocompress -pkg assets -tags !nobindata -o internal/pkg/assets/bindata.go ./internal/bpf/probe*.o
+	$(GOBINDATA) -nometadata -nocompress -pkg assets -tags !nobindata -o pkg/kernel/assets/compiled.go ./internal/bpf/probe*.o
 
 all: bpf bindata generate cmd/ internal/bpf swoll ## Build the BPF probe and swoll binary
 

@@ -15,7 +15,7 @@ func (f *Filter) ApplyDefaults() error {
 		return err
 	}
 
-	if err := f.ApplySyscallDefaults(0); err != nil {
+	if err := f.ApplySyscallDefaults(-1); err != nil {
 		return err
 	}
 
@@ -37,7 +37,7 @@ var defaultSyscalls = []string{
 	"sys_mkdirat",
 	"sys_statfs",
 	"sys_access",
-	"sys_prlimit",
+	"sys_prlimit64",
 	"sys_mount",
 	"sys_unlink",
 	"sys_unlinkat",
@@ -72,13 +72,7 @@ var defaultSyscalls = []string{
 	"sys_inotify_add_watch",
 	"sys_ftruncate",
 	"sys_sethostname",
-	"sys_ioctl",
 	"sys_clone",
-	"sys_nanosleep",
-	"sys_close",
-	"sys_sendto",
-	"sys_recvfrom",
-	"sys_rt_sigaction",
 	"sys_mprotect",
 	// "sys_read"
 }
