@@ -1,5 +1,5 @@
 REGISTRY=docker.io
-USERNAME=<YOUR-DOCKER-USERNAME>
+USERNAME=errzey
 APP_NAME=swoll-kube-test
 
 binary:
