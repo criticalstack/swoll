@@ -48,8 +48,12 @@ func main() {
 	// - All the hard work of maintaining the filters being run in the kernel is
 	//   done for you.
 	// - A single instance of the probe can run multiple traces at one time,
-	//   only targetting the very specific pieces of information that was
-	//   requested.
+	//   only targetting the very specific pieces of information (e.g., filters
+	//   for specific container/syscalls) which was requested.
+	//
+	//   This reduces the overhead of BPF code running in the kernel,
+	//   as we only need a single tracepoint attached and running our filters.
+	//
 	// - Rule de-duplication. If you specify more than one rule, and the rule
 	//   from the second has containers and system-calls that also matched the
 	//   first, the kernel still only uses a single filter. The data is
@@ -201,6 +205,19 @@ func main() {
 	// the callback function to execute for every event that matched.
 	hub.AttachTrace(trace1, dumpTextEvent)
 	hub.AttachTrace(trace2, dumpTextEvent)
+
+	// If you have used the deploy.yaml found within this directory, you will
+	// see two `job-id`'s firing:
+	//
+	//  `trace1-monitor-nginx`
+	//  `trace2-monitor-execve`
+	//
+	// Since `trace1` monitors execve for only a subset of hosts (`app=nginx`), and `trace2`
+	// monitors ALL execve calls across all hosts, both rules will fire for
+	// TraceEvent's sourced from hosts with the label `app=nginx`.
+	//
+	// This is an example of how the Hub
+	// does de-duplication.
 
 	// Run until we are told to stop.
 	<-ctx.Done()
