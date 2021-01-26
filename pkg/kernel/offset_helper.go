@@ -210,7 +210,7 @@ func maxCandidates(candidates map[string]int) (string, int) {
 
 	for k, v := range candidates {
 		if v == mn {
-			log.Infof("warning: same size candidates (%v=%v == %v=%v)\n", k, v, ms, mn)
+			log.Warnf("warning: same size candidates (%v=%v == %v=%v)\n", k, v, ms, mn)
 		}
 
 		if v > mn {
@@ -244,7 +244,7 @@ func pidnsCommonLikelyOffset(symbols kernelSyms, corefile string, functions []st
 	}
 
 	addr, count := maxCandidates(candidates)
-	log.Infof("pidns->ns_common likelyOffset addr=%v, count=%v\n", addr, count)
+	log.Debugf("pidns->ns_common likelyOffset addr=%v, count=%v\n", addr, count)
 	return addr, nil
 
 }
@@ -269,7 +269,7 @@ func nsproxyLikelyOffset(symbols kernelSyms, corefile string, functions []string
 	}
 
 	addr, count := maxCandidates(candidates)
-	log.Infof("nsproxy offset likely at offset=%v (%d hits)\n", addr, count)
+	log.Debugf("nsproxy offset likely at offset=%v (%d hits)\n", addr, count)
 
 	return addr, nil
 }

@@ -1,16 +1,21 @@
-// +build ignore
 package main
 
 import (
+	"context"
 	"fmt"
-	"log"
+	"os"
 
+	"github.com/criticalstack/swoll/api/v1alpha1"
 	"github.com/criticalstack/swoll/pkg/event"
 	"github.com/criticalstack/swoll/pkg/kernel/assets"
+	"github.com/criticalstack/swoll/pkg/topology"
+	log "github.com/sirupsen/logrus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
-func dumpTextEvent(ev *event.TraceEvent) {
-	fmt.Printf("%s: [%s/%v] (%s) %s(", ev.Container.FQDN(), ev.Comm, ev.Pid, ev.Error, ev.Argv.CallName())
+func dumpTextEvent(name string, ev *event.TraceEvent) {
+	fmt.Printf("job-id:%s - %s: [%s/%v] (%s) %s(", name, ev.Container.FQDN(), ev.Comm, ev.Pid, ev.Error, ev.Argv.CallName())
 	for _, arg := range ev.Argv.Arguments() {
 		fmt.Printf("(%s)%s=%v ", arg.Type, arg.Name, arg.Value)
 	}
@@ -18,12 +23,16 @@ func dumpTextEvent(ev *event.TraceEvent) {
 }
 
 func main() {
+	log.SetOutput(os.Stderr)
+	log.SetLevel(log.DebugLevel)
+
 	// The first step, as always, is to load the BPF object.
 	//
 	// If you do not wish to ship the compiled BPF around with your code, swoll
-	// contains a pre-compiled version of the BPF object which can be loaded via
+	// contains a pre-compiled version of the BPF which can be loaded via
 	// the assets API
-	bpf := assets.LoadBPF()
+	bpf := assets.LoadBPFReader()
+	ctx := context.Background()
 
 	// Since the point of this example is to show how to "properly" use the
 	// swoll API to monitor Kubernetes, we must start with the concept of a
@@ -72,25 +81,26 @@ func main() {
 		// this file is available to this program.
 		topology.WithKubernetesCRI("/run/containerd/containerd.sock"),
 		// By default, the topology reader will see all containers in all
-		// namespaces, this configuration tells the observer to only watch for
-		// changes in the `kube-system` namespace.
-		topology.WithKubernetesNamespace("kube-system"),
+		// namespaces, set this to whatever namespace if you wish to limit the
+		// search to a single namespace. It's usually a good idea to leave this
+		// empty for the Observer.
+		topology.WithKubernetesNamespace(""),
 		// The observer does some checks for information contained in the ProcFS
 		// directory (e.g., /proc), but if you have mounted this into a
 		// different directory, you can specify that here. I'm leaving it here
-		// as an example. This will lookup the information from "/proc".
+		// as an example. This will lookup information from "/proc".
 		topology.WithKubernetesProcRoot("/"),
 		// You can optionally specify a set of labels to filter on using
 		// `key=value` strings. Here we apply a filter which matches on any
-		// pods/containers that do NOT have the label `dont-swoll-me` set to
+		// pods/containers that do NOT have the label `noSwoll` set to
 		// `true`. In other words, if a POD/container is created with the label
-		// `dont-swoll-me=true`, it will not be seen by this observer.
-		topology.WIthKubernetesLabelSelector("dont-swoll-me!=true"),
+		// `noSwoll=true`, it will not be seen by this observer.
+		topology.WithKubernetesLabelSelector("noSwoll!=true"),
 		// Much like the label-selector, one can also add a Field Selection to
 		// match on runtime information like the running status of the pod or
 		// container. This is runtime specific, and in this case, we match only
 		// hosts that Kubernetes has deemed as "Running".
-		topology.WithKubernetesFieldSelector("status.Phase=Running"),
+		topology.WithKubernetesFieldSelector("status.phase=Running"),
 	)
 	if err != nil {
 		log.Fatalf("Could not create the kubernetes observer: %v", err)
@@ -99,74 +109,99 @@ func main() {
 	// Next we create our `Hub` which inherits our kubernetes observer. This
 	// will initialize all the underlying BPF and apply initial kernel filters.
 	// This API is the component which manipulates and maintains all of the
-	// moving parts of the topology.
+	// moving parts of the topology. It acts as a kernel event multiplexer.
+	hub, err := topology.NewHub(bpf, kubeObserver)
+	if err != nil {
+		log.Fatalf("Could not create the topology hub: %v", err)
+	}
+
+	// Since we are using the pre-compiled BPF object, we must inform the kernel
+	// BPF where to look inside our task_struct for various members that are not
+	// known at runtime. Here we use a builtin helper function which determines,
+	// and sets those offsets for us.
+	if err := hub.Probe().DetectAndSetOffsets(); err != nil {
+		log.Fatalf("Could not detect offsets for running kernel: %v", err)
+	}
+
+	// Start our Hub as a background task. This maintains a running list of all
+	// containers and submitted jobs running on the system along with kernel filters,
+	// garbage-collection, and other various house-keeping operations.
+	go hub.MustRun(ctx)
+
+	// Now in order to run one or more traces on the Hub, we must construct a properly
+	// formatted TraceSpec for each trace we wish to install.
 	//
-	// Most of these arguments are the same as the `kubeObserver` configuration
-	// options. In future releases these will be deprecated and completely co
-	/*
-		traceHub, err := hub.NewHub(&hub.Config{
-			BPFObject: bpf,
-		}
-	*/
-
-	/*
-		// Next, we must create a probe object from our BPF code. In most cases, the
-		// second argument (the base configuration) can be left as nil for the
-		// default.
-		probe, err := kernel.NewProbe(bpfCode, nil)
+	// This is a helper function to convert a string to a kubernetes LabelSet
+	convertLabels := func(lstr string) labels.Set {
+		ret, err := labels.ConvertSelectorToLabelsMap(lstr)
 		if err != nil {
-			log.Fatalf("Unable to create the kernel-probe context: %v", err)
+			log.Fatalf("Could not convert labels %v to labels map: %v", err)
 		}
+		return ret
+	}
 
-		// The next step involves initializing all of the underlying probe data, in
-		// this specific case, we initialize with the `WithOffsetDetection` option.
-		// Without going into too much detail, there are various members into the
-		// `struct task_struct` kernel structure that swoll needs to access; Since
-		// this can differ from kernel-to-kernel, when this option is passed, these
-		// offsets are resolved via the currently running version.
-		if err := probe.InitProbe(kernel.WithOffsetDetection()); err != nil {
-			log.Fatalf("Unable to initialize probe: %v", err)
-		}
-	*/
+	// This first trace specification will trace the system-calls "openat",
+	// "connect", "execve", and "accept4" for any *running* containers in the `swoll`
+	// namespace that have the Kubernetes label `app=nginx` set.
+	trace1 := &v1alpha1.Trace{
+		ObjectMeta: metav1.ObjectMeta{
+			// The Kubernetes namespace we want to monitor inside of. For this
+			// example it is assumed that the deploy.yaml file in this directory
+			// has been applied.
+			Namespace: "swoll-hub-test",
+		},
+		Spec: v1alpha1.TraceSpec{
+			LabelSelector: metav1.LabelSelector{
+				// Monitor any hosts that have the `app=nginx` label
+				// This should match some containers defined in the
+				// `deploy.yaml` file found in this directory.
+				MatchLabels: convertLabels("app=nginx"),
+			},
+			FieldSelector: metav1.LabelSelector{
+				// Only monitor hosts that are currently up and running.
+				MatchLabels: convertLabels("status.phase=Running"),
+			},
+			Syscalls: []string{"execve", "openat", "connect", "accept4"},
+		},
+		Status: v1alpha1.TraceStatus{
+			// Set the name of this trace, can be anything; if left empty, a
+			// name will be generated.
+			JobID: "trace1-monitor-nginx",
+		},
+	}
 
-	/*
-		// Before we put this into a running mode, we (should) create a filter that
-		// will be run inside the kernel. `NewFilter`'s first argument is the raw
-		// BPF handle, as we want to interact with the filter for this specific BPF
-		// context.
-		f, err := filter.NewFilter(probe.Module())
-		if err != nil {
-			log.Fatalf("Unable to create filter: %v", err)
-		}
+	// This second trace specification will monitor `execve` calls for any
+	// running container in any kubernetes namespace.
+	trace2 := &v1alpha1.Trace{
+		ObjectMeta: metav1.ObjectMeta{
+			// An empty namespace means to monitor ALL namespaces
+			Namespace: "",
+		},
+		Spec: v1alpha1.TraceSpec{
+			FieldSelector: metav1.LabelSelector{
+				// Only monitor hosts that are currently up and running.
+				MatchLabels: convertLabels("status.phase=Running"),
+			},
+			Syscalls: []string{"execve"},
+		},
+		Status: v1alpha1.TraceStatus{
+			// Set the name of this trace, can be anything; if left empty, a
+			// name will be generated.
+			JobID: "trace2-monitor-execve",
+		},
+	}
 
-		f.FilterSelf()
-		f.AddSyscall("execve", -1)
-		f.AddSyscall("openat", -1)
-		f.AddSyscall("accept4", -1)
-		f.AddSyscall("connect", -1)
+	// Next we submit and run these two trace specifications in our Hub as a
+	// background task
+	go hub.RunTrace(ctx, trace1)
+	go hub.RunTrace(ctx, trace2)
 
-		observer, err := topology.NewKubernetes(topology.WithKubernetesCRI("/run/containerd/containerd.sock"))
-		if err != nil {
-			log.Fatalf("Unable to create topology context: %v", err)
-		}
+	// And now for the final step: attaching to the two running traces and
+	// printing out the output of each. The second argument of these calls it
+	// the callback function to execute for every event that matched.
+	hub.AttachTrace(trace1, dumpTextEvent)
+	hub.AttachTrace(trace2, dumpTextEvent)
 
-		ctx := context.Background()
-		topo := topology.NewTopology(observer)
-		event := event.NewTraceEvent().WithTopology(topo)
-
-		go topo.Run(ctx, func(tp topology.EventType, c *types.Container) {
-			fmt.Printf("eventType=%v, container=%v\n", tp, c.FQDN())
-		})
-
-		probe.Run(ctx, func(msg []byte, lost uint64) error {
-			parsed, err := event.Ingest(msg)
-			if err != nil {
-				return nil
-			}
-
-			dumpTextEvent(parsed)
-
-			return nil
-		})
-	*/
+	// Run until we are told to stop.
+	<-ctx.Done()
 }

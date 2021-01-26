@@ -8,6 +8,7 @@ import (
 	"github.com/criticalstack/swoll/pkg/event/call"
 	"github.com/criticalstack/swoll/pkg/syscalls"
 	"github.com/criticalstack/swoll/pkg/types"
+	log "github.com/sirupsen/logrus"
 )
 
 // TraceEvent is a more concrete version of the `RawEvent` structure, it
@@ -248,7 +249,7 @@ func (ev *TraceEvent) Ingest(data interface{}) (*TraceEvent, error) {
 
 	callData, err := call.DecodeSyscall(int(rawEvent.Syscall), rawEvent.Args(), rawEvent.ArgLen())
 	if err != nil {
-		fmt.Println(err)
+		log.Warnf("Failed to decode syscall %v: %v", rawEvent.Syscall, err)
 		callData = data.(call.Function)
 	}
 
