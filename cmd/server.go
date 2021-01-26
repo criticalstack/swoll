@@ -794,13 +794,6 @@ func runServer(cmd *cobra.Command, args []string) {
 	}
 
 	hb, err := topology.NewHub(bytes.NewReader(bpf), topo)
-	/*
-		&hub.Config{
-			AltRoot:     altroot,
-			BPFObject:   bpf,
-			CRIEndpoint: crisock,
-			K8SEndpoint: kconfig}, topo)
-	*/
 	if err != nil {
 		log.Fatal(err)
 	}
