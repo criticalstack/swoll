@@ -3,13 +3,14 @@ USERNAME=errzey
 APP_NAME=swoll-kube-test
 
 binary:
-	go build -ldflags="-extldflags=-static"
+	go build -ldflags="-extldflags=-static" -o kube-trace
 
 build: binary
 	docker build -t ${USERNAME}/${APP_NAME} . 
 	
 push:
 	docker push ${USERNAME}/${APP_NAME}
+	@echo "run: make deploy"
 
 all: build binary
 	@echo "run: make push"

@@ -9,9 +9,7 @@ import (
 	"strings"
 
 	"github.com/criticalstack/swoll/api/v1alpha1"
-	"github.com/criticalstack/swoll/internal/pkg/hub"
 	"github.com/criticalstack/swoll/pkg/event"
-	"github.com/criticalstack/swoll/pkg/event/call"
 	"github.com/criticalstack/swoll/pkg/event/reader"
 	"github.com/criticalstack/swoll/pkg/kernel"
 	"github.com/criticalstack/swoll/pkg/kernel/filter"
@@ -112,7 +110,7 @@ var cmdTrace = &cobra.Command{
 				bgblack := color.New(color.BgBlack).SprintFunc()
 				white := color.New(color.FgWhite).SprintFunc()
 
-				fn := ev.Argv.(call.Function)
+				fn := ev.Argv
 				args := fn.Arguments()
 
 				var errno string
@@ -160,12 +158,7 @@ var cmdTrace = &cobra.Command{
 				log.Fatal(err)
 			}
 
-			hub, err := hub.NewHub(&hub.Config{
-				AltRoot:      altroot,
-				BPFObject:    bpf,
-				CRIEndpoint:  crisock,
-				K8SEndpoint:  kconfig,
-				K8SNamespace: namespace}, topo)
+			hub, err := topology.NewHub(bytes.NewReader(bpf), topo)
 			if err != nil {
 				log.Fatal(err)
 			}

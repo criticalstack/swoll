@@ -1,14 +1,12 @@
 package event
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"syscall"
 
 	"github.com/criticalstack/swoll/pkg/event/call"
 	"github.com/criticalstack/swoll/pkg/syscalls"
-	"github.com/criticalstack/swoll/pkg/topology"
 	"github.com/criticalstack/swoll/pkg/types"
 )
 
@@ -32,13 +30,20 @@ type TraceEvent struct {
 	MntNamespace int               `json:"mount_ns"`
 	Start        int64             `json:"start"`
 	Finish       int64             `json:"finish"`
-	Argv         interface{}       `json:"args"`
+	Argv         call.Function     `json:"args"`
 	// when the topology context is not nil, it is used
 	// to resove container information.
-	topo *topology.Topology
+	//topo            *topology.Topology
+	lookupContainer ContainerLookupCb
 	// Right now the only use for this is to copy the raw arguments
 	// into the JSON version of this structure.
 	raw *RawEvent
+}
+
+type ContainerLookupCb func(namespace int) (*types.Container, error)
+
+func NewTraceEvent() *TraceEvent {
+	return new(TraceEvent)
 }
 
 // ColorString is just a helper to display a stupid terminal-colored
@@ -65,7 +70,7 @@ func (ev *TraceEvent) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	var args interface{}
+	var args call.Function
 
 	switch ev.Syscall.Nr {
 	case syscall.SYS_ACCEPT:
@@ -197,10 +202,19 @@ func (ev *TraceEvent) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+/*
 // WithTopology sets the internal topology context to `topo` for "resolving"
 // kernel-namespaces to containers.
 func (ev *TraceEvent) WithTopology(topo *topology.Topology) *TraceEvent {
 	ev.topo = topo
+	return ev
+}
+*/
+
+// WithContainerLookup sets the callback to execute to resolve kernel namespaces
+// to the container it is associated with.
+func (ev *TraceEvent) WithContainerLookup(cb ContainerLookupCb) *TraceEvent {
+	ev.lookupContainer = cb
 	return ev
 }
 
@@ -228,14 +242,14 @@ func (ev *TraceEvent) Ingest(data interface{}) (*TraceEvent, error) {
 
 	var container *types.Container
 
-	if ev.topo != nil {
-		container, _ = ev.topo.LookupContainer(context.TODO(), rawEvent.PidNamespace())
+	if ev.lookupContainer != nil {
+		container, _ = ev.lookupContainer(rawEvent.PidNamespace())
 	}
 
 	callData, err := call.DecodeSyscall(int(rawEvent.Syscall), rawEvent.Args(), rawEvent.ArgLen())
 	if err != nil {
 		fmt.Println(err)
-		callData = data
+		callData = data.(call.Function)
 	}
 
 	ev.PidNamespace = int(rawEvent.PidNS)

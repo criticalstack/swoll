@@ -6,7 +6,6 @@ import (
 	"log"
 
 	"github.com/criticalstack/swoll/pkg/event"
-	"github.com/criticalstack/swoll/pkg/event/call"
 	"github.com/criticalstack/swoll/pkg/kernel"
 	"github.com/criticalstack/swoll/pkg/kernel/assets"
 	"github.com/criticalstack/swoll/pkg/kernel/filter"
@@ -15,10 +14,8 @@ import (
 )
 
 func dumpTextEvent(ev *event.TraceEvent) {
-	fn := ev.Argv.(call.Function)
-
-	fmt.Printf("%s: [%s/%v] (%s) %s(", ev.Container.FQDN(), ev.Comm, ev.Pid, ev.Error, fn.CallName())
-	for _, arg := range fn.Arguments() {
+	fmt.Printf("%s: [%s/%v] (%s) %s(", ev.Container.FQDN(), ev.Comm, ev.Pid, ev.Error, ev.Argv.CallName())
+	for _, arg := range ev.Argv.Arguments() {
 		fmt.Printf("(%s)%s=%v ", arg.Type, arg.Name, arg.Value)
 	}
 	fmt.Println(")")
@@ -45,14 +42,14 @@ func main() {
 	f.AddSyscall("accept4", -1)
 	f.AddSyscall("connect", -1)
 
-	kubeTopo, err := topology.NewKubernetes(topology.WithKubernetesCRI("/run/containerd/containerd.sock"))
+	observer, err := topology.NewKubernetes(topology.WithKubernetesCRI("/run/containerd/containerd.sock"))
 	if err != nil {
 		log.Fatalf("Unable to create topology context: %v", err)
 	}
 
 	ctx := context.Background()
-	topo := topology.NewTopology(kubeTopo)
-	event := new(event.TraceEvent).WithTopology(topo)
+	topo := topology.NewTopology(observer)
+	event := event.NewTraceEvent().WithTopology(topo)
 
 	go topo.Run(ctx, func(tp topology.EventType, c *types.Container) {
 		fmt.Printf("eventType=%v, container=%v\n", tp, c.FQDN())

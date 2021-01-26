@@ -1,4 +1,4 @@
-package hub_test
+package topology_test
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/criticalstack/swoll/api/v1alpha1"
-	"github.com/criticalstack/swoll/internal/pkg/hub"
 	"github.com/criticalstack/swoll/pkg/event"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

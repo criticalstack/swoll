@@ -237,7 +237,7 @@ func main() {
         decoded.Ingest(msg)
 
         // fetch the arguments associated with the call
-        args := decoded.Argv.(call.Function).Arguments()
+        args := decoded.Argv.Arguments()
 
         fmt.Printf("comm:%-15s pid:%-8d %s(%s)\n", decoded.Comm, decoded.Pid, decoded.Syscall, args)
     }
@@ -303,7 +303,7 @@ func main() {
 
     // attach to the running trace and print out stuff
     kHub.AttachTrace(trace, func(id string, ev *event.TraceEvent) {
-        args := ev.Argv.(call.Function).Arguments()
+        args := ev.Argv.Arguments()
 
         fmt.Printf("container=%s pod=%s namespace=%s comm:%-15s pid:%-8d %s(%s)\n",
             ev.Container.Name, ev.Container.Pod, ev.Container.Namespace,

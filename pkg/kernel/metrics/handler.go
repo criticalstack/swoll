@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"sync"
 	"unsafe"
 
 	"github.com/iovisor/gobpf/elf"
@@ -9,6 +10,7 @@ import (
 type Handler struct {
 	module *elf.Module
 	table  *elf.Map
+	sync.Mutex
 }
 
 func NewHandler(mod *elf.Module) *Handler {
@@ -23,6 +25,9 @@ func (h *Handler) PruneNamespace(ns int) (int, error) {
 	v := &val{}
 	n := &key{}
 	toDelete := make([]*key, 0)
+
+	h.Lock()
+	defer h.Unlock()
 
 	for {
 		more, _ := h.module.LookupNextElement(h.table,
@@ -53,6 +58,9 @@ func (h *Handler) QueryAll() Metrics {
 	kkey := &key{}
 	kval := &val{}
 	next := &key{}
+
+	h.Lock()
+	defer h.Unlock()
 
 	for {
 		more, _ := h.module.LookupNextElement(h.table,

@@ -34,6 +34,7 @@ type Observer interface {
 	Connect(ctx context.Context) error
 	Containers(ctx context.Context) ([]*types.Container, error)
 	Run(ctx context.Context, out chan<- *ObservationEvent)
+	Copy(opts ...interface{}) (Observer, error)
 	Close() error
 }
 

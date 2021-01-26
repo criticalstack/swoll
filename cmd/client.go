@@ -14,7 +14,6 @@ import (
 
 	"github.com/criticalstack/swoll/api/v1alpha1"
 	"github.com/criticalstack/swoll/pkg/client"
-	"github.com/criticalstack/swoll/pkg/event/call"
 	color "github.com/fatih/color"
 	uuid "github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
@@ -293,7 +292,7 @@ var cmdClientCreate = &cobra.Command{
 				case ev := <-outChan:
 					switch out {
 					case "cli":
-						fn := ev.Data.Argv.(call.Function)
+						fn := ev.Data.Argv
 						args := fn.Arguments()
 
 						green := color.New(color.FgGreen).SprintFunc()

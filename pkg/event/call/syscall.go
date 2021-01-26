@@ -10,7 +10,7 @@ const (
 	SYS_SETNS   = 308
 )
 
-func DecodeSyscall(nr int, arguments []*byte, arglen int) (interface{}, error) {
+func DecodeSyscall(nr int, arguments []*byte, arglen int) (Function, error) {
 	switch nr {
 	case syscall.SYS_ACCEPT:
 		ret := new(Accept)

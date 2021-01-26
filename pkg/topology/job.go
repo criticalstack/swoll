@@ -1,4 +1,4 @@
-package hub
+package topology
 
 import (
 	"container/list"
@@ -8,9 +8,9 @@ import (
 	"github.com/criticalstack/swoll/api/v1alpha1"
 	"github.com/criticalstack/swoll/internal/pkg/pubsub"
 	"github.com/criticalstack/swoll/pkg/event"
-	"github.com/criticalstack/swoll/pkg/event/reader"
 	"github.com/criticalstack/swoll/pkg/syscalls"
-	"github.com/criticalstack/swoll/pkg/topology"
+	"github.com/criticalstack/swoll/pkg/types"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -85,22 +85,18 @@ func (j *Job) Run(ctx context.Context, h *Hub) error {
 	now := metav1.NewTime(time.Now())
 	j.Status.StartTime = &now
 
+	// grab the trace specification from this job definition.
 	spec := j.TraceSpec()
-	kubetop, err := topology.NewKubernetes(
-		topology.WithKubernetesCRI(h.config.CRIEndpoint),
-		topology.WithKubernetesConfig(h.config.K8SEndpoint),
-		topology.WithKubernetesNamespace(j.Namespace),
-		topology.WithKubernetesProcRoot(h.config.AltRoot),
-		topology.WithKubernetesLabelSelector(labels.Set(spec.LabelSelector.MatchLabels).String()),
-		topology.WithKubernetesFieldSelector(labels.Set(spec.FieldSelector.MatchLabels).String()))
-	if err != nil {
-		log.Fatal(err)
-	}
 
-	topo := topology.NewTopology(kubetop)
-	rdr := reader.NewEventReader(topo)
-	//nolint:errcheck
-	go rdr.Run(ctx)
+	// derive an Observer using the parent observer (most likely the Kubernetes observer), but
+	// set the namespace and various selectors to match this job.
+	observer, err := h.topo.observer.Copy(
+		WithKubernetesNamespace(j.Namespace),
+		WithKubernetesLabelSelector(labels.Set(spec.LabelSelector.MatchLabels).String()),
+		WithKubernetesFieldSelector(labels.Set(spec.FieldSelector.MatchLabels).String()))
+	if err != nil {
+		return errors.Wrapf(err, "could not make a copy of the observer")
+	}
 
 	// these are the list of syscalls which will be used as rules for each
 	// matched container from the topology api.
@@ -109,103 +105,96 @@ func (j *Job) Run(ctx context.Context, h *Hub) error {
 		calls = append(calls, syscalls.Lookup(sc))
 	}
 
-	// It should be noted that we are looking at topology events, meaning these
-	// are messages informing us about containers entering and leaving the
-	// cluster. So when you see kernel filters being added and removed, even if
-	// associated with another job, these are containers that have left or
-	// joined the cluster so they need to be removed from the filter.
-	for {
-		select {
-		case ev := <-rdr.Read():
-			switch ev := ev.(type) {
-			case event.ContainerAddEvent:
-				// new container found inside cluster that matched our labels
-				name := ev.Name
+	// Create and run the topology using the new Observer for this specific job.
+	go NewTopology(observer).Run(ctx, func(etype EventType, c *types.Container) {
+		switch etype {
+		case EventTypeStop:
+			// container that matched our labels is being removed from the
+			// cluster. Knowing that this container no longer exists, we
+			// can remove the associated global kernel filters.
+			pns := c.PidNamespace
+			j.RemoveContainer(c.Pod, c.Name)
 
-				if len(spec.HostSelector) > 0 {
-					// if we have a host-selector array in our spec, attempt to
-					// match this container's name with the entries in this
-					// variable. Only if they match will the filter be added.
-					matched := false
-					for _, h := range spec.HostSelector {
-						if h == name {
-							matched = true
-							break
-						}
-					}
+			for _, sc := range calls {
+				log.Tracef("[%s/%d] removing syscall '%s' to kernel-filter\n", j.JobID(), pns, sc.Name)
 
-					if !matched {
-						// just break out of this case if we didn't match
-						// anything
-						break
-					}
+				if err := h.filter.RemoveSyscall(sc.Nr, pns); err != nil {
+					log.Warnf("[%s/%d] failed to remove syscall '%s' from kernel-filter\n", j.JobID(), pns, sc.Name)
 
-				}
-
-				pns := ev.PidNamespace
-				j.AddContainer(ev.Pod, name)
-
-				// got a new container that matched, for each syscall, push a
-				// job up that associates pidns+syscallNR with this job
-				for _, sc := range calls {
-					log.Tracef("[%s/%d] Adding syscall '%s' to kernel-filter\n", j.JobID(), pns, sc.Name)
-
-					// This will create a sub-filter off of the pid-namespace
-					// which matches this subset of syscalls..
-					h.PushJob(j, pns, sc.Nr)
-
-					sampleRate := spec.SampleRate
-
-					if sampleRate > 0 {
-						// find the job with the lowest current sampleRate, and
-						// if it is lower than this job's sampleRate, replace it
-						// with this one. The other job's will emulate via
-						// sub-sampling the true samplerate.
-						if lowestJob := h.findLowestSampleJob(sc.Nr, pns); lowestJob != nil && lowestJob.Spec.SampleRate < sampleRate {
-							log.Tracef("[%s/%d] swapping sample-rate for currently running rule to %d\n", j.JobID(), pns, sampleRate)
-							if err := h.filter.RemoveSyscall(sc.Nr, pns); err != nil {
-								log.Warnf("Couldn't remove syscall %v\n", err)
-							}
-						}
-
-						if err := h.filter.AddSampledSyscall(sc.Nr, pns, uint64(sampleRate)); err != nil {
-							log.Warnf("[%s/%d] Error adding syscall kernel-filter for '%s'\n", j.JobID(), pns, sc.Name)
-							return err
-						}
-					}
-
-					// Tell the kernel that we wish to monitor this syscall for
-					// this given pid-namespace.
-					// Note: if the filter already exists, this acts as a NOP.
-					if err := h.filter.AddSyscall(sc.Nr, pns); err != nil {
-						log.Warnf("[%s/%d] Error adding syscall kernel-filter for '%s'\n", j.JobID(), pns, sc.Name)
-						return err
-					}
-				}
-
-			case event.ContainerDelEvent:
-				// container that matched our labels is being removed from the
-				// cluster. Knowing that this container no longer exists, we
-				// can remove the associated global kernel filters.
-				pns := ev.PidNamespace
-				j.RemoveContainer(ev.Pod, ev.Name)
-
-				for _, sc := range calls {
-					log.Tracef("[%s/%d] removing syscall '%s' to kernel-filter\n", j.JobID(), pns, sc.Name)
-
-					if err := h.filter.RemoveSyscall(sc.Nr, pns); err != nil {
-						log.Warnf("[%s/%d] failed to remove syscall '%s' from kernel-filter\n", j.JobID(), pns, sc.Name)
-
-						// XXX[lz]: just continue on for now - but we should
-						// really think about what to do in cases like this as
-						// it might be dire.
-					}
+					// XXX[lz]: just continue on for now - but we should
+					// really think about what to do in cases like this as
+					// it might be dire.
 				}
 			}
-		case <-ctx.Done():
-			return nil
+		case EventTypeStart:
+			// new container found inside cluster that matched our labels
+			name := c.Name
+
+			if len(spec.HostSelector) > 0 {
+				// if we have a host-selector array in our spec, attempt to
+				// match this container's name with the entries in this
+				// variable. Only if they match will the filter be added.
+				matched := false
+				for _, h := range spec.HostSelector {
+					if h == name {
+						matched = true
+						break
+					}
+				}
+
+				if !matched {
+					// just break out of this case if we didn't match
+					// anything
+					break
+				}
+
+			}
+
+			pns := c.PidNamespace
+			j.AddContainer(c.Pod, name)
+
+			// got a new container that matched, for each syscall, push a
+			// job up that associates pidns+syscallNR with this job
+			for _, sc := range calls {
+				log.Tracef("[%s/%d] Adding syscall '%s' to kernel-filter\n", j.JobID(), pns, sc.Name)
+
+				// This will create a sub-filter off of the pid-namespace
+				// which matches this subset of syscalls..
+				h.PushJob(j, pns, sc.Nr)
+
+				sampleRate := spec.SampleRate
+
+				if sampleRate > 0 {
+					// find the job with the lowest current sampleRate, and
+					// if it is lower than this job's sampleRate, replace it
+					// with this one. The other job's will emulate via
+					// sub-sampling the true samplerate.
+					if lowestJob := h.findLowestSampleJob(sc.Nr, pns); lowestJob != nil && lowestJob.Spec.SampleRate < sampleRate {
+						log.Tracef("[%s/%d] swapping sample-rate for currently running rule to %d\n", j.JobID(), pns, sampleRate)
+						if err := h.filter.RemoveSyscall(sc.Nr, pns); err != nil {
+							log.Warnf("Couldn't remove syscall %v\n", err)
+						}
+					}
+
+					if err := h.filter.AddSampledSyscall(sc.Nr, pns, uint64(sampleRate)); err != nil {
+						log.Warnf("[%s/%d] Error adding syscall kernel-filter for '%s'\n", j.JobID(), pns, sc.Name)
+						return
+					}
+				}
+
+				// Tell the kernel that we wish to monitor this syscall for
+				// this given pid-namespace.
+				// Note: if the filter already exists, this acts as a NOP.
+				if err := h.filter.AddSyscall(sc.Nr, pns); err != nil {
+					log.Warnf("[%s/%d] Error adding syscall kernel-filter for '%s'\n", j.JobID(), pns, sc.Name)
+					return
+				}
+			}
 		}
-	}
+	})
+
+	<-ctx.Done()
+	return nil
 }
 
 // WriteEvent writes event `ev` to all listeners of this `Job`

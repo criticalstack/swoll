@@ -6,13 +6,12 @@ import (
 	"log"
 
 	"github.com/criticalstack/swoll/pkg/event"
-	"github.com/criticalstack/swoll/pkg/event/call"
 	"github.com/criticalstack/swoll/pkg/kernel"
 	"github.com/criticalstack/swoll/pkg/kernel/assets"
 )
 
 func dumpTextEvent(ev *event.TraceEvent) {
-	fn := ev.Argv.(call.Function)
+	fn := ev.Argv
 
 	fmt.Printf("[%s/%v] (%s) %s(", ev.Comm, ev.Pid, ev.Error, fn.CallName())
 	for _, arg := range fn.Arguments() {

@@ -115,6 +115,27 @@ func NewKubernetes(opts ...KubernetesOption) (*Kubernetes, error) {
 	return ret, nil
 }
 
+// Copy copies all but the client connections from the parent.
+func (k *Kubernetes) Copy(opts ...interface{}) (Observer, error) {
+	kcopy := &Kubernetes{
+		criSocket:     k.criSocket,
+		kubeConfig:    k.kubeConfig,
+		namespace:     k.namespace,
+		labelSelector: k.labelSelector,
+		fieldSelector: k.fieldSelector,
+		procRoot:      k.procRoot,
+	}
+
+	for _, opt := range opts {
+		optfn := opt.(KubernetesOption)
+		if err := optfn(kcopy); err != nil {
+			return nil, err
+		}
+	}
+
+	return kcopy, nil
+}
+
 func (k *Kubernetes) connectCRI(ctx context.Context) error {
 	conn, err := grpc.Dial(k.criSocket, grpc.WithInsecure(), grpc.WithContextDialer(
 		func(ctx context.Context, addr string) (net.Conn, error) {

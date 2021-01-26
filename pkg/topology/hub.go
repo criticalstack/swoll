@@ -1,4 +1,4 @@
-package hub
+package topology
 
 import (
 	"bytes"
@@ -11,12 +11,11 @@ import (
 	"github.com/criticalstack/swoll/api/v1alpha1"
 	"github.com/criticalstack/swoll/internal/pkg/pubsub"
 	"github.com/criticalstack/swoll/pkg/event"
-	"github.com/criticalstack/swoll/pkg/event/reader"
 	"github.com/criticalstack/swoll/pkg/kernel"
 	"github.com/criticalstack/swoll/pkg/kernel/filter"
 	"github.com/criticalstack/swoll/pkg/kernel/metrics"
 	"github.com/criticalstack/swoll/pkg/syscalls"
-	"github.com/criticalstack/swoll/pkg/topology"
+	"github.com/criticalstack/swoll/pkg/types"
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -34,7 +33,6 @@ const (
 // Hub maintains the global kernel probe and all the underlying
 // filters and event message routing.
 type Hub struct {
-	config *Config
 	// map pid-namespace+syscall_nr to a list of JobContext's
 	nsmap map[int]map[int]*JobList
 	// map job-ids to lists of JobContext's
@@ -47,7 +45,7 @@ type Hub struct {
 	filter *filter.Filter
 	// the topology context for this hub which is used for resolving kernel
 	// namespaces to pods/containers
-	topo          *topology.Topology
+	topo          *Topology
 	statsInterval time.Duration
 	sync.Mutex
 }
@@ -151,70 +149,34 @@ func (h *Hub) WriteEvent(ev *event.TraceEvent) {
 // find all jobs associated with this message, and publish the event to
 // the streams tied to the jobs.
 func (h *Hub) Run(ctx context.Context) error {
-	// initialize our kernel reader used to read messages from the kernel.
-	proberdr := reader.NewEventReader(h.probe)
-	//nolint:errcheck
-	go proberdr.Run(ctx)
+	// create a new buffer to store our parsed kernel messages into, also set
+	// the kernel-namespace -> container resolver callback to read from our
+	// topology API.
+	//
+	// Note: we create this as global to the scope of this function, everything
+	// is run as a callback so there should not be a need for a mutex.
+	msg := event.NewTraceEvent().WithContainerLookup(
+		func(pidNamespace int) (*types.Container, error) {
+			// when this callback is executed, the return container value will
+			// be set within our current `msg` context
+			return h.topo.LookupContainer(ctx, pidNamespace)
+		})
 
-	// initialize our topology reader which is used for resolving
-	// kernel-namespaces back to the container/pod it was sourced from.
-	topordr := reader.NewEventReader(h.topo)
-	// nolint:errcheck
-	go topordr.Run(ctx)
-
-	mhandler := metrics.NewHandler(h.probe.Module())
-	sinterval := h.statsInterval
-	if sinterval == 0 {
-		// default the stats interval to 10 seconds.
-		sinterval = 10 * time.Second
-	}
-
-	stattick := time.NewTicker(sinterval)
-
-	msg := new(event.TraceEvent).WithTopology(h.topo)
-
-	for {
-		select {
-		case <-stattick.C:
-			log.Debugf("allocated-metric-nodes: %v", len(mhandler.QueryAll()))
-		case ev := <-topordr.Read():
-			// we keep an active podmon reader available for kernel-namespace to
-			// container resolution
-			switch ev := ev.(type) {
-			case event.ContainerAddEvent:
-				log.Tracef("adding container to metrics watcher: %s", ev.Container.FQDN())
-
-				if err := h.filter.AddMetrics(ev.PidNamespace); err != nil {
-					log.Warnf("failed to add kernel-metric filter for %s: %v", ev.Container.FQDN(), err)
-				}
-
-			case event.ContainerDelEvent:
-				log.Tracef("removing/pruning container from metrics watcher: %s", ev.Container.FQDN())
-
-				if err := h.filter.RemoveMetrics(ev.PidNamespace); err != nil {
-					log.Warnf("failed to remove kernel-metric filter for %s: %v", ev.Container.FQDN(), err)
-				}
-
-				pruned, err := mhandler.PruneNamespace(ev.PidNamespace)
-				if err != nil {
-					log.Warnf("failed to prune metrics for %s: %v", ev.Container.FQDN(), err)
-				}
-
-				log.Tracef("pruned %d metrics for %s", pruned, ev.Container.FQDN())
-			}
-
-		case ev := <-proberdr.Read():
-			// read a single event from the kernel, allcoate empty TraceEvent,
-			// initialize the underlying with the topology resolver
+	// Run our kernel probe handler in a goroutine
+	go func() {
+		err := h.probe.Run(ctx, func(ev []byte, lost uint64) error {
+			// read a single raw event from the kernel, attempt to decode the raw
+			// data into a TraceEvent via Ingest.
 			if _, err := msg.Ingest(ev); err != nil {
-				continue
+				log.Debugf("Failed to decode raw event: %v", err)
+				return nil
 			}
 
 			// We were unable to obtain any container information about this
 			// message, this could be for several reasons, but we just ignore
 			// for now.
 			if msg.Container == nil {
-				continue
+				return nil
 			}
 
 			h.Lock()
@@ -235,8 +197,65 @@ func (h *Hub) Run(ctx context.Context) error {
 			}
 
 			h.Unlock()
+			return nil
+		})
+		if err != nil {
+			log.Error(err)
+		}
+
+	}()
+
+	// Using events from the observer (container start/stop), we keep a running
+	// list of metrics to gather. This also handles kernel-filter garbage
+	// collection.
+	mhandler := metrics.NewHandler(h.probe.Module())
+
+	go h.topo.Run(ctx, func(etype EventType, c *types.Container) {
+		switch etype {
+		case EventTypeStart:
+			// a new container was started, simply assure that we are collecting
+			// metrics.
+			log.Tracef("adding container to metrics watcher: %s", c.FQDN())
+
+			if err := h.filter.AddMetrics(c.PidNamespace); err != nil {
+				log.Warnf("failed to add kernel-metric filter for %s: %v", c.FQDN(), err)
+			}
+		case EventTypeStop:
+			// a container has been marked as either stopped, or some other
+			// indicator stating it is no longer available.
+			log.Tracef("removing/pruning container from metrics watcher: %s", c.FQDN())
+
+			if err := h.filter.RemoveMetrics(c.PidNamespace); err != nil {
+				log.Warnf("failed to remove kernel-metric filter for %s: %v", c.FQDN(), err)
+			}
+
+			pruned, err := mhandler.PruneNamespace(c.PidNamespace)
+			if err != nil {
+				log.Warnf("failed to prune metrics for %s: %v", c.FQDN(), err)
+			}
+
+			log.Tracef("pruned %d metrics for %s", pruned, c.FQDN())
+		}
+	})
+
+	sinterval := h.statsInterval
+	if sinterval == 0 {
+		// default the stats interval to 10 seconds.
+		sinterval = 10 * time.Second
+	}
+
+	stattick := time.NewTicker(sinterval)
+
+	for {
+		select {
+		case <-stattick.C:
+			log.Debugf("allocated-metric-nodes: %v", len(mhandler.QueryAll()))
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 	}
+
+	return nil
 
 }
 
@@ -324,12 +343,12 @@ func (h *Hub) findLowestSampleJob(ns, nr int) *JobContext {
 
 // NewHub creates and initializes a Hub context for reading and writing data to
 // the kernel probe and routing them to the clients that care.
-func NewHub(config *Config, observer topology.Observer) (*Hub, error) {
-	if len(config.BPFObject) == 0 {
+func NewHub(bpf *bytes.Reader, observer Observer) (*Hub, error) {
+	if bpf.Len() == 0 {
 		return nil, errors.New("BPF object missing")
 	}
 
-	probe, err := kernel.NewProbe(bytes.NewReader(config.BPFObject), nil)
+	probe, err := kernel.NewProbe(bpf, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -343,6 +362,7 @@ func NewHub(config *Config, observer topology.Observer) (*Hub, error) {
 		return nil, err
 	}
 
+	// blacklist our running pid so we don't see events from our self.
 	if err := filter.FilterSelf(); err != nil {
 		return nil, err
 	}
@@ -359,18 +379,17 @@ func NewHub(config *Config, observer topology.Observer) (*Hub, error) {
 	}
 
 	return &Hub{
-		config: config,
 		nsmap:  make(map[int]map[int]*JobList),
 		idmap:  make(map[string]*JobList),
 		ps:     pubsub.New(),
 		probe:  probe,
 		filter: filter,
-		topo:   topology.NewTopology(observer),
+		topo:   NewTopology(observer),
 	}, nil
 }
 
 // Topology returns this Hub's current underlying topology context
-func (h *Hub) Topology() *topology.Topology {
+func (h *Hub) Topology() *Topology {
 	if h != nil {
 		return h.topo
 	}
