@@ -1,3 +1,5 @@
+// +build !nobindata
+
 package assets
 
 import (
