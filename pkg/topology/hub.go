@@ -30,8 +30,9 @@ const (
 	stubSyscallFilter   = "sys_set_tid_address" // a stub syscall we use to "prime" the kernel syscall-filter
 )
 
-// Hub maintains the global kernel probe and all the underlying
-// filters and event message routing.
+// Hub maintains all of the underlying kernel-filters, job request and output
+// routing, metric-rules, de-duplication, garbage-collection using information
+// it has obtained via the underlying Observer.
 type Hub struct {
 	// map pid-namespace+syscall_nr to a list of JobContext's
 	nsmap map[int]map[int]*JobList
@@ -50,27 +51,74 @@ type Hub struct {
 	sync.Mutex
 }
 
-// RunJob runs a job on the Hub
+// NewHub creates and initializes a Hub context and the underlying BPF, primes
+// the kernel filter, and sets up the in-kernel metrics.
+//  hub := topology.NewHub(assets.LoadBPFReader(), topology.NewKubernetes())
+func NewHub(bpf *bytes.Reader, observer Observer) (*Hub, error) {
+	if bpf.Len() == 0 {
+		return nil, errors.New("BPF object missing")
+	}
+
+	probe, err := kernel.NewProbe(bpf, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := probe.InitProbe(); err != nil {
+		return nil, err
+	}
+
+	filter, err := filter.NewFilter(probe.Module())
+	if err != nil {
+		return nil, err
+	}
+
+	// blacklist our running pid so we don't see events from our self.
+	if err := filter.FilterSelf(); err != nil {
+		return nil, err
+	}
+
+	// we need to have at least one syscall in our filter (which will never
+	// actually match anything) when we start with a clean slate.
+	if err := filter.AddSyscall(stubSyscallFilter, 0); err != nil {
+		return nil, err
+	}
+
+	// add a stub/dummy metrics filter so we don't dump everything.
+	if err := filter.AddMetrics(stubMetricsFilterNS); err != nil {
+		return nil, err
+	}
+
+	return &Hub{
+		nsmap:  make(map[int]map[int]*JobList),
+		idmap:  make(map[string]*JobList),
+		ps:     pubsub.New(),
+		probe:  probe,
+		filter: filter,
+		topo:   NewTopology(observer),
+	}, nil
+}
+
+// RunTrace will create and schedule a trace-job to be run inside the Hub.
+func (h *Hub) RunTrace(ctx context.Context, t *v1alpha1.Trace) error {
+	return h.RunJob(ctx, NewJob(t))
+}
+
+// RunJob will schedule an already-allocated trace-job to be run inside the Hub.
 func (h *Hub) RunJob(ctx context.Context, job *Job) error {
 	return job.Run(ctx, h)
 }
 
-// MustRunJob calls hub.RunJob but exits on any errors
+// MustRunJob is a fail-wrapper around RunJob
 func (h *Hub) MustRunJob(ctx context.Context, job *Job) {
 	if err := h.RunJob(ctx, job); err != nil {
 		log.Fatal(err)
 	}
 }
 
-// RunTrace runs a TraceJob on the hub
-func (h *Hub) RunTrace(ctx context.Context, t *v1alpha1.Trace) error {
-	return h.RunJob(ctx, NewJob(t))
-}
-
 // DeleteTrace will stop all the running jobs that are associated with this
-// Trace specification. using the job-id, we iterate over each context and
-// if there are no other jobs trying to use the syscall and pod associated
-// with this, the kernel filters are removed.
+// specification. All kernel-filters that were added to create this job are
+// removed if no other jobs share the same rules
 func (h *Hub) DeleteTrace(t *v1alpha1.Trace) error {
 	h.Lock()
 	defer h.Unlock()
@@ -137,17 +185,18 @@ func (h *Hub) DeleteTrace(t *v1alpha1.Trace) error {
 	return nil
 }
 
-// WriteEvent writes a single TraceEvent to all subscribers
+// WriteEvent writes a single TraceEvent to all subscribers using the
+// path-subscriptions
 func (h *Hub) WriteEvent(ev *event.TraceEvent) {
 	h.ps.Publish(ev, pubsub.LinearTreeTraverser(
 		hashPath(swNsStream, ev.Container.Namespace,
 			ev.Container.Pod, ev.Container.Name, ev.Syscall.Name)))
 }
 
-// Run starts up and runs the global kernel probe and maintains various
-// state. For each event that is recv'd via the bpf, we decode it (`Ingest`),
-// find all jobs associated with this message, and publish the event to
-// the streams tied to the jobs.
+// Run runs the main Hub event-loop. It maintains the filters and metric
+// rules that run in the BPF, resolves and routes system-call events to all the
+// job output queues, accepts Trace specs to run, and keeps the bpf running
+// light.
 func (h *Hub) Run(ctx context.Context) error {
 	// create a new buffer to store our parsed kernel messages into, also set
 	// the kernel-namespace -> container resolver callback to read from our
@@ -259,6 +308,7 @@ func (h *Hub) Run(ctx context.Context) error {
 
 }
 
+// MustRun is a fail-wrapper around Run
 func (h *Hub) MustRun(ctx context.Context) {
 	if err := h.Run(ctx); err != nil {
 		log.Fatal(err)
@@ -287,12 +337,16 @@ func (h *Hub) findJobListByID(id string) *JobList {
 }
 
 // PushJob insert a namespace+nr specific job as a value of a list in two
-// buckets; the first being the `nsmap`, a mapping of pidNamespace + syscall_NR
-// to lists of jobs, and an `idmap`, a mapping of jobID's to jobs.
+// buckets;
+// "nsmap": a mapping of pid-namespace+syscall -> list of jobs,
+// "idmap": a mapping of a job-ID to individual job contexts.
 //
-// We keep these lists like this so that if two jobs that have overlapping rules
-// (e.g., rule-A=syscall_A,syscall_B, rule-B=syscall_A,syscall_C) we don't
-// accidentally delete a running check for `syscall_A` if `rule-B` is removed.
+// This is done to solve potential job duplication issues with overlapping
+// rules. For example if we have two rules:
+//  rule-A = syscall_A, syscall_B
+//  rule-B = syscall_A, syscall_C
+// And if "rule-B" is deleted, we don't want the kernel filter "syscall_A"
+// removed due to the fact it is still needed for "rule-A".
 func (h *Hub) PushJob(job *Job, ns, nr int) {
 	h.Lock()
 	defer h.Unlock()
@@ -341,53 +395,6 @@ func (h *Hub) findLowestSampleJob(ns, nr int) *JobContext {
 	return min
 }
 
-// NewHub creates and initializes a Hub context for reading and writing data to
-// the kernel probe and routing them to the clients that care.
-func NewHub(bpf *bytes.Reader, observer Observer) (*Hub, error) {
-	if bpf.Len() == 0 {
-		return nil, errors.New("BPF object missing")
-	}
-
-	probe, err := kernel.NewProbe(bpf, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := probe.InitProbe(); err != nil {
-		return nil, err
-	}
-
-	filter, err := filter.NewFilter(probe.Module())
-	if err != nil {
-		return nil, err
-	}
-
-	// blacklist our running pid so we don't see events from our self.
-	if err := filter.FilterSelf(); err != nil {
-		return nil, err
-	}
-
-	// we need to have at least one syscall in our filter (which will never
-	// actually match anything) when we start with a clean slate.
-	if err := filter.AddSyscall(stubSyscallFilter, 0); err != nil {
-		return nil, err
-	}
-
-	// add a stub/dummy metrics filter so we don't dump everything.
-	if err := filter.AddMetrics(stubMetricsFilterNS); err != nil {
-		return nil, err
-	}
-
-	return &Hub{
-		nsmap:  make(map[int]map[int]*JobList),
-		idmap:  make(map[string]*JobList),
-		ps:     pubsub.New(),
-		probe:  probe,
-		filter: filter,
-		topo:   NewTopology(observer),
-	}, nil
-}
-
 // Topology returns this Hub's current underlying topology context
 func (h *Hub) Topology() *Topology {
 	if h != nil {
@@ -406,17 +413,15 @@ func (h *Hub) Probe() *kernel.Probe {
 	return nil
 }
 
-// AttachTrace will subscribe the caller to a stream which has the output of a
-// specific job.
-func (h *Hub) AttachTrace(t *v1alpha1.Trace, cb func(n string, ev *event.TraceEvent)) pubsub.Unsubscriber {
-	return h.ps.Subscribe(
-		func(data interface{}) {
-			cb(t.Status.JobID, data.(*event.TraceEvent))
-		}, pubsub.WithPath(hashPath(swJobStream, t.Status.JobID)))
-}
-
-// AttachPath will subscribe the caller to a stream which is a subset of data
-// sent to a specific job.
+// AttachPath taps the caller into a subset of the data being sent to a running Job.
+// Whenever an event is sent to a job, the Hub will also broadcast a copy of
+// this event to a prefix-hash like so:
+//   hash("kube-namespace/", "kube-pod/", "kube-container/", "syscall-name/")
+//
+// Monitor ns/pod/container/syscall
+//   hub.AttachPath("<name>", []string{"<namespace>", "<pod>", "<container>", "syscall"}, cb)
+// Monitor all syscalls and containers in pod:
+//   hub.AttachPath("<name>", []string{"<namespace>", "<pod>"}, cb)
 func (h *Hub) AttachPath(name string, paths []string, cb func(string, *event.TraceEvent)) pubsub.Unsubscriber {
 	tpaths := []string{swNsStream}
 	tpaths = append(tpaths, paths...)
@@ -425,4 +430,12 @@ func (h *Hub) AttachPath(name string, paths []string, cb func(string, *event.Tra
 		func(data interface{}) {
 			cb(name, data.(*event.TraceEvent))
 		}, pubsub.WithPath(hashPath(tpaths...)))
+}
+
+// AttachTrace taps the caller into the events for a running Trace
+func (h *Hub) AttachTrace(t *v1alpha1.Trace, cb func(n string, ev *event.TraceEvent)) pubsub.Unsubscriber {
+	return h.ps.Subscribe(
+		func(data interface{}) {
+			cb(t.Status.JobID, data.(*event.TraceEvent))
+		}, pubsub.WithPath(hashPath(swJobStream, t.Status.JobID)))
 }

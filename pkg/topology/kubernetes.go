@@ -1,11 +1,3 @@
-// In order to properly satisfy the topology interface, the kubernetes wrapper
-// will monitor POD events (either starting, updating, or stopping) and match
-// them with information from the underlying CRI (Container Runtime Interface)
-// which is managed by the kubelet.
-//
-// We utilize the CRI endpoints to fetch the current PID, and PID namespace
-// associated with every container in a POD. When any POD event is seen, this
-// code will automatically scan the CRI for containers that match these PODS.
 package topology
 
 import (
