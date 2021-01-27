@@ -1,11 +1,12 @@
-package topology
+package topology_test
 
 import (
+	"bytes"
 	"context"
 
 	"github.com/criticalstack/swoll/api/v1alpha1"
 	"github.com/criticalstack/swoll/pkg/event"
-	"github.com/criticalstack/swoll/pkg/kernel/assets"
+	"github.com/criticalstack/swoll/pkg/topology"
 )
 
 // Running the Hub
@@ -15,7 +16,9 @@ func ExampleHub_Run() {
 		panic(err)
 	}
 
-	hub, err := topology.NewHub(assets.LoadBPFReader(), obs)
+	var bpf *bytes.Reader
+
+	hub, err := topology.NewHub(bpf, obs)
 	if err != nil {
 		panic(err)
 	}
@@ -27,6 +30,8 @@ func ExampleHub_Run() {
 
 // A short example showing how to use the RunTrace call
 func ExampleHub_RunTrace() {
+	var bpf *bytes.Reader
+
 	hub, err := topology.NewHub(bpf, observer)
 	if err != nil {
 		panic(err)

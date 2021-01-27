@@ -16,30 +16,29 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-// Job maintains the general rules for which a trace runs under.
+// Job stores the trace specification and a running list of hosts which have
+// matched this job.
 type Job struct {
 	*v1alpha1.Trace
 	sampled        int
 	monitoredHosts map[string]bool
 }
 
-// JobContext is a structure that is used to store all the kernel filtering
-// information per pid-namespace.
+// JobContext contains information about the filters that were created in order
+// to run a Job. Since multiple jobs can have shared resources (like
+// kernel-filters), all possible rules are created and set.
 //
-// When we reference a "POD" in this code, we use the PID namespace of the
-// underlying container to key off of. Since multiple jobs can have some of
-// the same syscalls and hosts being monitored, we create a list of all possible
-// rules, but only filter in the kernel what is needed.
+// For example, say we have two jobs: "job-A", and "job-B".
 //
-// For example: say we have two "jobs". "Job-A", and "Job-B".
-// Job-A monitors "app=nginx" with the syscalls "open"/"close"
-// Job-B monitors "type=webserver" with the syscalls "open"
-//   app=nginx matches 'host-A' and 'host-B'
-//   type=webserver matches 'host-A' and 'host-Z'
-// If we were to blindly delete Job-B, (meaning removing the filters for
-// 'Host-A' and syscall "open"), we would also delete the filter that is
-// being used for 'Job-A'. So we just make sure we don't delete from the
-// actual kernel filter until our lists are empty.
+//  job-A monitors pods that match the label: app=nginx for the syscalls: "open", and "close"
+//  job-B monitors pods that match the label: type=webserver for just the syscall "open"
+//
+// If a pod was created with both the labels above (app=nginx,type=webserver),
+// and we were to blindly delete "job-B", any filters that were added that
+// matched both rules would be removed.
+//
+// Thus every filter is accounted for, treated much like a reference counter,
+// only removing from the kernel-filter when no rules require it.
 type JobContext struct {
 	*Job
 	// the element that was used for insertion into the `nsmap` in `Hub`
