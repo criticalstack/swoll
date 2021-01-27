@@ -1,6 +1,10 @@
 package topology_test
 
-import "github.com/criticalstack/swoll/pkg/topology"
+import (
+	"fmt"
+
+	"github.com/criticalstack/swoll/pkg/topology"
+)
 
 func ExampleNewKubernetes() {
 	observer, err := topology.NewKubernetes(
@@ -12,4 +16,6 @@ func ExampleNewKubernetes() {
 	if err != nil {
 		panic(err)
 	}
+
+	fmt.Println(observer)
 }

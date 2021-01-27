@@ -7,6 +7,7 @@ import (
 	"github.com/criticalstack/swoll/api/v1alpha1"
 	"github.com/criticalstack/swoll/pkg/event"
 	"github.com/criticalstack/swoll/pkg/topology"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Running the Hub
@@ -30,7 +31,10 @@ func ExampleHub_Run() {
 
 // A short example showing how to use the RunTrace call
 func ExampleHub_RunTrace() {
-	var bpf *bytes.Reader
+	var (
+		bpf      *bytes.Reader
+		observer topology.Observer
+	)
 
 	hub, err := topology.NewHub(bpf, observer)
 	if err != nil {
@@ -64,6 +68,8 @@ func ExampleHub_RunTrace() {
 // Simple example to show how to use the AttachTrace method, this assumes the
 // topology.Hub is already running with an Observer.
 func ExampleHub_AttachTrace() {
+	var hub *topology.Hub
+
 	trace := &v1alpha1.Trace{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "kube-system",
@@ -76,13 +82,14 @@ func ExampleHub_AttachTrace() {
 		},
 	}
 
-	go hub.RunTrace(ctx, trace)
+	go hub.RunTrace(context.TODO(), trace)
 	hub.AttachTrace(trace, func(name string, ev *event.TraceEvent) {})
 }
 
 // In this example we use AttachPath to "subscribe" to a subset of events being
 // sent to a running Job output.
 func ExampleHub_AttachPath() {
+	var hub *topology.Hub
 	// Assumes there is a job that has matches namespace=kube-system,
 	// pod=foo-pod, and a container named "boo"
 	unsub := hub.AttachPath("example", []string{"kube-system", "foo-pod", "boo"},

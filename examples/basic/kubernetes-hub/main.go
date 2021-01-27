@@ -34,18 +34,6 @@ func main() {
 	bpf := assets.LoadBPFReader()
 	ctx := context.Background()
 
-	dumpEvent := func(traceName string, ev *event.TraceEvent) {
-		fmt.Printf("job-id:%s - %s: [%s/%v] (%s) %s(", traceName,
-			ev.Container.FQDN(), ev.Comm, ev.Pid, ev.Error,
-			ev.Argv.CallName(),
-		)
-
-		for _, arg := range ev.Argv.Arguments() {
-			fmt.Printf("(%s)%s=%v ", arg.Type, arg.Name, arg.Value)
-		}
-		fmt.Println(")")
-	}
-
 	// Since the point of this example is to show how to "properly" use the
 	// swoll API to monitor Kubernetes, we must start with the concept of a
 	// the `topology`.
