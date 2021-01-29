@@ -1,0 +1,97 @@
+---
+# this is the temporary test namespace we use for this example
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: swoll-hub-test 
+---
+apiVersion: apps/v1
+kind: Deployment  
+metadata:
+  name: swoll-hub 
+  # make sure this deployment sits in our test namespace
+  namespace: swoll-hub-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: swoll-hub
+  template:
+    metadata:
+      labels:
+        app: swoll-hub
+        # tell swoll not to monitor ourselves
+        noSwoll: 'true'
+    spec:
+      hostPID: true
+      volumes:
+        - name: sys
+          hostPath:
+            path: /sys
+        - name: containerd
+          hostPath:
+            path: /run/containerd/containerd.sock
+      containers:
+      - name: swoll-hub-test 
+        # change this to your own personal repo if you modify the code
+        image: errzey/swoll-hub-test:latest
+        imagePullPolicy: Always 
+        securityContext:
+          privileged: true
+        volumeMounts:
+          - mountPath: /run/containerd/containerd.sock
+            name: containerd
+          - mountPath: /sys
+            name: sys
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: swoll-hub-test-reader
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: swoll-hub-test-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: swoll-hub-test-reader
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: swoll-hub-test
+---
+# Spin up some test containers which this example will monitor
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-reader-writer
+  namespace: swoll-hub-test
+  labels:
+      app: nginx
+spec:
+  volumes:
+  - name: html
+    emptyDir: {}
+  containers:
+  - name: webserver
+    image: nginx
+    volumeMounts:
+    - name: html
+      mountPath: /usr/share/nginx/html
+  - name: indexwriter
+    image: debian
+    volumeMounts:
+    - name: html
+      mountPath: /html
+    command: ["/bin/sh", "-c"]
+    args:
+      - while true; do
+          date >> /html/index․html;
+          sleep 5;
+        done

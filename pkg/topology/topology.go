@@ -9,21 +9,34 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type EventType int
 type OnEventCallback func(t EventType, container *types.Container)
 
+// These are the two states in which an observer event can be in.
+type EventType int
+
 const (
-	EventTypeStart EventType = iota
-	EventTypeStop
+	EventTypeStart EventType = iota // container started
+	EventTypeStop                   // container stopped
 )
 
-var (
-	ErrNilEvent          = errors.New("nil event")
-	ErrNilContainer      = errors.New("nil container")
-	ErrUnknownType       = errors.New("unknown event-type")
-	ErrBadNamespace      = errors.New("invalid kernel pid-namespace")
-	ErrContainerNotFound = errors.New("container not found")
-)
+// ErrNilEvent is the error returned to indicate the observer sent an empty
+// message
+var ErrNilEvent = errors.New("nil event")
+
+// ErrNilContainer is the error returned to indicate the observer sent an empty
+// container message
+var ErrNilContainer = errors.New("nil container")
+
+// ErrUnknownType is the error returned to indicate a malformed observer event
+var ErrUnknownType = errors.New("unknown event-type")
+
+// ErrBadNamespace is the error returned to indicate the observer was unable to
+// resolve the PID-Namespace of the container
+var ErrBadNamespace = errors.New("invalid kernel pid-namespace")
+
+// ErrContainerNotFound is the error returned to indicate the container was
+// unable to be resolved
+var ErrContainerNotFound = errors.New("container not found")
 
 type ObservationEvent struct {
 	Type      EventType
@@ -34,6 +47,7 @@ type Observer interface {
 	Connect(ctx context.Context) error
 	Containers(ctx context.Context) ([]*types.Container, error)
 	Run(ctx context.Context, out chan<- *ObservationEvent)
+	Copy(opts ...interface{}) (Observer, error)
 	Close() error
 }
 

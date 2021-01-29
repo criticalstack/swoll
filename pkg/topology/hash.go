@@ -1,4 +1,4 @@
-package hub
+package topology
 
 import "hash/crc64"
 

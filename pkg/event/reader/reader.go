@@ -4,8 +4,6 @@ import (
 	"context"
 
 	"github.com/criticalstack/swoll/pkg/kernel"
-	"github.com/criticalstack/swoll/pkg/topology"
-	"github.com/go-redis/redis"
 )
 
 type EventReader interface {
@@ -24,10 +22,6 @@ func NewEventReader(src interface{}) EventReader {
 	switch src := src.(type) {
 	case *kernel.Probe:
 		return NewKernelReader(src)
-	case *redis.PubSub:
-		return NewRedisReader(src)
-	case *topology.Topology:
-		return NewTopologyReader(src)
 	}
 
 	return &EmptyReader{}

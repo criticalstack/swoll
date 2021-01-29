@@ -3,10 +3,11 @@ package kernel
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 
+	"github.com/criticalstack/swoll/pkg/kernel/filter"
 	"github.com/iovisor/gobpf/elf"
+	"github.com/pkg/errors"
 )
 
 // Config is uhh, configuration stuff.
@@ -75,9 +76,11 @@ func NewProbe(bpf *bytes.Reader, cfg *Config) (*Probe, error) {
 // or if the lost channel had been signaled.
 type DataCallback func(msg []byte, lost uint64) error
 
+type ProbeInitOption func(*Probe) error
+
 // InitProbe loads all the underlying bpf maps, allocates the perfevent buffer,
 // sets the tracepoints, all of which are operations which require CAP_ADMIN
-func (p *Probe) InitProbe() error {
+func (p *Probe) InitProbe(opts ...ProbeInitOption) error {
 	if p == nil || p.module == nil {
 		return fmt.Errorf("nil probe")
 	}
@@ -93,9 +96,36 @@ func (p *Probe) InitProbe() error {
 		return err
 	}
 
+	for _, opt := range opts {
+		if err := opt(p); err != nil {
+			return err
+		}
+	}
+
 	p.initialized = true
 
 	return nil
+}
+
+func WithOffsetDetection() ProbeInitOption {
+	return func(p *Probe) error {
+		return p.DetectAndSetOffsets()
+	}
+}
+
+func WithDefaultFilter() ProbeInitOption {
+	return func(p *Probe) error {
+		f, err := filter.NewFilter(p.Module())
+		if err != nil {
+			return errors.Wrapf(err, "unable to create new filter context")
+		}
+
+		if err := f.ApplyDefaults(); err != nil {
+			return errors.Wrapf(err, "unable to create filter for this proccess")
+		}
+
+		return nil
+	}
 }
 
 // InitTracePoints will set our tracepoints as on.
@@ -136,11 +166,7 @@ func (p *Probe) Run(ctx context.Context, cb DataCallback) error {
 	}
 
 	if !p.initialized {
-		// don't rely on end-user to call init (as it could be sourced from
-		// eventreader)
-		if err := p.InitProbe(); err != nil {
-			return err
-		}
+		return errors.New("probe not initialized")
 	}
 
 	if !p.tpInitialized {

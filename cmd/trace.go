@@ -5,15 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 
 	"github.com/criticalstack/swoll/api/v1alpha1"
-	"github.com/criticalstack/swoll/internal/pkg/assets"
-	"github.com/criticalstack/swoll/internal/pkg/hub"
 	"github.com/criticalstack/swoll/pkg/event"
-	"github.com/criticalstack/swoll/pkg/event/call"
 	"github.com/criticalstack/swoll/pkg/event/reader"
 	"github.com/criticalstack/swoll/pkg/kernel"
 	"github.com/criticalstack/swoll/pkg/kernel/filter"
@@ -25,47 +21,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
-
-// loadBPFargs will attempt to find the BPF object file via the commandline,
-// If the argument is empty (default), we check the local environment, and if
-// that fails, we attempt to load the go-bindata generated asset.
-func loadBPFargs(cmd *cobra.Command, args []string) ([]byte, error) {
-	var (
-		bpf []byte
-		err error
-	)
-
-	// first check to see if the bpf object was defined at the commandline
-	bpfFile, err = cmd.Flags().GetString("bpf")
-	if err != nil {
-		return nil, err
-	}
-
-	if bpfFile == "" {
-		// not found on the command-line, now try environment
-		bpfFile = os.Getenv("SWOLL_BPFOBJECT")
-	}
-
-	if bpfFile != "" {
-		// attempt to read the bpf object file if defined
-		bpf, err = ioutil.ReadFile(bpfFile)
-		if err != nil && !os.IsNotExist(err) {
-			// only error if the error is *NOT* of type "file not found"
-			return nil, err
-		}
-	}
-
-	if len(bpf) == 0 {
-		// we've tried all sorts of ways to load this file, by default
-		// it attempts to use the go-bindata generated asset resource.
-		bpf, err = assets.Asset("internal/bpf/probe.o")
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return bpf, err
-}
 
 var cmdTrace = &cobra.Command{
 	Use:   "trace",
@@ -155,7 +110,7 @@ var cmdTrace = &cobra.Command{
 				bgblack := color.New(color.BgBlack).SprintFunc()
 				white := color.New(color.FgWhite).SprintFunc()
 
-				fn := ev.Argv.(call.Function)
+				fn := ev.Argv
 				args := fn.Arguments()
 
 				var errno string
@@ -203,12 +158,7 @@ var cmdTrace = &cobra.Command{
 				log.Fatal(err)
 			}
 
-			hub, err := hub.NewHub(&hub.Config{
-				AltRoot:      altroot,
-				BPFObject:    bpf,
-				CRIEndpoint:  crisock,
-				K8SEndpoint:  kconfig,
-				K8SNamespace: namespace}, topo)
+			hub, err := topology.NewHub(bytes.NewReader(bpf), topo)
 			if err != nil {
 				log.Fatal(err)
 			}

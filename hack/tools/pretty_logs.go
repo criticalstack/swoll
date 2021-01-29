@@ -10,7 +10,6 @@ import (
 	"os"
 
 	"github.com/criticalstack/swoll/pkg/client"
-	"github.com/criticalstack/swoll/pkg/event/call"
 	"github.com/fatih/color"
 )
 
@@ -31,7 +30,7 @@ func main() {
 			continue
 		}
 
-		fn := event.Data.Argv.(call.Function)
+		fn := event.Data.Argv
 		args := fn.Arguments()
 
 		var errno string

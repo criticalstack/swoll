@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	defaultImageName = "cinderegg:5000/swoll:latest"
+	defaultImageName = "criticalstack/swoll:latest"
 )
 
 var (

@@ -2,6 +2,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,7 +14,6 @@ import (
 	"time"
 
 	"github.com/criticalstack/swoll/api/v1alpha1"
-	"github.com/criticalstack/swoll/internal/pkg/hub"
 	"github.com/criticalstack/swoll/pkg/event"
 	"github.com/criticalstack/swoll/pkg/kernel/metrics"
 	"github.com/criticalstack/swoll/pkg/syscalls"
@@ -38,7 +38,7 @@ type errResponse struct {
 type traceJob struct {
 	ID    string          `json:"id"`
 	Trace *v1alpha1.Trace `json:"traceSpec"`
-	job   *hub.Job
+	job   *topology.Job
 }
 
 type liveJobs struct {
@@ -201,7 +201,7 @@ func jobReader(c *websocket.Conn) {
 // jobWriter attaches the current websocket to the running job and deals with
 // the PING messages from the server. It also routes the ouput of a job back to
 // the websocket client
-func jobWriter(job *traceJob, h *hub.Hub, c *websocket.Conn) {
+func jobWriter(job *traceJob, h *topology.Hub, c *websocket.Conn) {
 	tickr := time.NewTicker(pingPeriod)
 
 	unsub := h.AttachTrace(job.Trace,
@@ -236,7 +236,7 @@ func jobWriter(job *traceJob, h *hub.Hub, c *websocket.Conn) {
 
 // traceWriter acts like jobWriter, but for specific traces (as in not a job,
 // but a subset of a job). See `traceWatchHandler`
-func traceWriter(paths []string, h *hub.Hub, c *websocket.Conn) {
+func traceWriter(paths []string, h *topology.Hub, c *websocket.Conn) {
 	tickr := time.NewTicker(pingPeriod)
 	defer func() {
 		tickr.Stop()
@@ -270,7 +270,7 @@ func traceWriter(paths []string, h *hub.Hub, c *websocket.Conn) {
 }
 
 // traceWatchHandler processes subset queries and outputs it to the websocket
-func traceWatchHandler(ctx context.Context, hub *hub.Hub) func(http.ResponseWriter, *http.Request) {
+func traceWatchHandler(ctx context.Context, hub *topology.Hub) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		args := mux.Vars(r)
 		conn, err := upgrader.Upgrade(w, r, nil)
@@ -288,7 +288,7 @@ func traceWatchHandler(ctx context.Context, hub *hub.Hub) func(http.ResponseWrit
 }
 
 // getJobsHandler gets information about a collection of jobs from this endpoint
-func getJobsHandler(ctx context.Context, hub *hub.Hub) func(http.ResponseWriter, *http.Request) {
+func getJobsHandler(ctx context.Context, hub *topology.Hub) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		running.RLock()
 		completed.RLock()
@@ -305,7 +305,7 @@ func getJobsHandler(ctx context.Context, hub *hub.Hub) func(http.ResponseWriter,
 // getJobHandler returns job information about a given job. If `id` is
 // specified, it will use the value as the jobID, otherwise the query arguments
 // are used.
-func getJobHandler(ctx context.Context, hub *hub.Hub) func(http.ResponseWriter, *http.Request) {
+func getJobHandler(ctx context.Context, hub *topology.Hub) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		jobid := mux.Vars(r)["id"]
 		job, err := running.get(jobid)
@@ -326,7 +326,7 @@ func getJobHandler(ctx context.Context, hub *hub.Hub) func(http.ResponseWriter, 
 }
 
 // createJobHandler constructs a v1alpha1.Trace type and creates the resource
-func createJobHandler(ctx context.Context, hb *hub.Hub) func(http.ResponseWriter, *http.Request) {
+func createJobHandler(ctx context.Context, hb *topology.Hub) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var jobid string
 
@@ -369,7 +369,7 @@ func createJobHandler(ctx context.Context, hb *hub.Hub) func(http.ResponseWriter
 			},
 		}
 
-		job := traceJob{jobid, trace, hub.NewJob(trace)}
+		job := traceJob{jobid, trace, topology.NewJob(trace)}
 
 		// add this job to the running list of jobs
 		if err := running.add(&job); err != nil {
@@ -384,7 +384,7 @@ func createJobHandler(ctx context.Context, hb *hub.Hub) func(http.ResponseWriter
 	}
 }
 
-func deleteJob(job *traceJob, hub *hub.Hub) error {
+func deleteJob(job *traceJob, hub *topology.Hub) error {
 	// Delete the job from our probe-hub
 	if err := hub.DeleteTrace(job.Trace); err != nil {
 		return err
@@ -405,7 +405,7 @@ func deleteJob(job *traceJob, hub *hub.Hub) error {
 }
 
 // deleteJobHandler is exeucted when a user attempts to delete a resource.
-func deleteJobHandler(ctx context.Context, hub *hub.Hub) func(http.ResponseWriter, *http.Request) {
+func deleteJobHandler(ctx context.Context, hub *topology.Hub) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		jobid := mux.Vars(r)["id"]
 		job, err := running.get(jobid)
@@ -793,11 +793,7 @@ func runServer(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
-	hb, err := hub.NewHub(&hub.Config{
-		AltRoot:     altroot,
-		BPFObject:   bpf,
-		CRIEndpoint: crisock,
-		K8SEndpoint: kconfig}, topo)
+	hb, err := topology.NewHub(bytes.NewReader(bpf), topo)
 	if err != nil {
 		log.Fatal(err)
 	}
