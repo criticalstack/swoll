@@ -134,7 +134,10 @@ Creates a brand new Hub context, using the Kubernetes Observer object we just cr
     }
 ```
 
-This part is pretty important. Since our BPF was compiled on a different system, there are various members of the `struct task_struct` structure that we need to read. These structure members live at offsets that are unknown to the system at runtime. This helper function `probe.DetectAndSetOffsets()` will poke at the memory of the running kernel in order to set  the proper offsets.
+This part is pretty important. The BPF needs to access various members of the
+kernel's `struct task_struct` structure which can differ on every system. This
+helper function `DetectAndSetOffsets` will poke at the memory of the running
+kernel in order to determine and set these offsets.
 
 ### Run the Hub
 

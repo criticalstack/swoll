@@ -32,7 +32,7 @@ spec:
           - --log
           - trace
           name: swoll-probe
-          image: 'criticalstack/swoll:latest'
+          image: 'cinderegg:5000/swoll:latest'
           imagePullPolicy: Always
           securityContext:
             privileged: true

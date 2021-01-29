@@ -136,6 +136,8 @@ func (k *Kubernetes) Copy(opts ...interface{}) (Observer, error) {
 }
 
 func (k *Kubernetes) connectCRI(ctx context.Context) error {
+	log.Tracef("Connecting to CRI %s...", k.criSocket)
+
 	conn, err := grpc.Dial(k.criSocket, grpc.WithInsecure(), grpc.WithContextDialer(
 		func(ctx context.Context, addr string) (net.Conn, error) {
 			return net.Dial("unix", k.criSocket)
@@ -261,6 +263,9 @@ func (k *Kubernetes) criContainers(ctx context.Context, match ...*matchPod) ([]*
 	}
 
 	containers := res.GetContainers()
+
+	log.Tracef("CRI found %d containers...", len(containers))
+
 	ret := make([]*types.Container, 0)
 
 	for _, container := range containers {
