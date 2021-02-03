@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/criticalstack/swoll/api/v1alpha1"
 	"github.com/criticalstack/swoll/pkg/event"
@@ -15,6 +16,7 @@ import (
 	"github.com/criticalstack/swoll/pkg/topology"
 	color "github.com/fatih/color"
 	uuid "github.com/google/uuid"
+	"github.com/iovisor/gobpf/elf"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -142,6 +144,8 @@ var cmdTrace = &cobra.Command{
 			}
 		}
 
+		var mod *elf.Module
+
 		if !noContainers {
 			// process with k8s support using a Kubernetes Observer for the
 			// Topology API:
@@ -165,6 +169,8 @@ var cmdTrace = &cobra.Command{
 			if err := SetOffsetsFromArgs(hub.Probe(), cmd, args); err != nil {
 				log.Fatal(err)
 			}
+
+			mod = hub.Probe().Module()
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -192,6 +198,8 @@ var cmdTrace = &cobra.Command{
 			if err := probe.InitProbe(); err != nil {
 				log.Fatal(err)
 			}
+
+			mod = probe.Module()
 
 			if err := SetOffsetsFromArgs(probe, cmd, args); err != nil {
 				log.Fatal(err)
@@ -236,7 +244,24 @@ var cmdTrace = &cobra.Command{
 
 		}
 
-		select {}
+		if log.IsLevelEnabled(log.DebugLevel) {
+			tick := time.NewTicker(10 * time.Second)
+			filter := kernel.NewFilter(mod)
+
+			for {
+				rules, err := filter.GetRunning()
+				if err != nil {
+					log.Debug(err)
+				}
+				for _, rule := range rules {
+					log.Debug(rule)
+				}
+
+				<-tick.C
+			}
+		} else {
+			select {}
+		}
 	},
 }
 

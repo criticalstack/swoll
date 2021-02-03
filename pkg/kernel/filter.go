@@ -76,6 +76,29 @@ func NewFilter(mod *elf.Module) *Filter {
 	}
 }
 
+func (f *Filter) GetRunning() ([]*FilterRule, error) {
+	key := &filterKey{}
+	val := &filterVal{}
+	next := &filterKey{}
+	ret := make([]*FilterRule, 0)
+
+	for {
+		more, err := f.mod.LookupNextElement(f.filter, unsafe.Pointer(key), unsafe.Pointer(next), unsafe.Pointer(val))
+		if err != nil {
+			return nil, err
+		}
+
+		if !more {
+			break
+		}
+
+		key = next
+		ret = append(ret, &FilterRule{*key, *val})
+	}
+
+	return ret, nil
+}
+
 func (f *Filter) AddRule(rule *FilterRule) error {
 	if rule.key.flags&fmodeMetrics > 0 && rule.key.syscall == 0 {
 		rule.key.syscall = -1
@@ -339,13 +362,21 @@ func (a filterAction) String() string {
 }
 
 func (k filterKey) String() string {
+	var callName string
+
+	if sc := syscalls.Lookup(int(k.syscall)); sc == nil {
+		callName = "ALL"
+	} else {
+		callName = sc.Name
+	}
+
 	return fmt.Sprintf("flags=%s, pid-namespace=%v, thread-id=%d, syscall=%s",
-		k.flags, k.pidns, k.thrid, syscalls.Lookup(int(k.syscall)))
+		k.flags, k.pidns, k.thrid, callName)
 }
 
 func (v filterVal) String() string {
-	return fmt.Sprintf("sample-rate=%d, current-sample-count=%d, action=%s",
-		v.sampleRate, v.sampleCount, v.action)
+	return fmt.Sprintf("sample-rate=%d, current-sample-count=%d, hits=%d, action=%s",
+		v.sampleRate, v.sampleCount, v.hits, v.action)
 }
 
 func (r *FilterRule) String() string {
