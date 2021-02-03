@@ -12,7 +12,6 @@ import (
 	"github.com/criticalstack/swoll/internal/pkg/pubsub"
 	"github.com/criticalstack/swoll/pkg/event"
 	"github.com/criticalstack/swoll/pkg/kernel"
-	"github.com/criticalstack/swoll/pkg/kernel/filter"
 	"github.com/criticalstack/swoll/pkg/kernel/metrics"
 	"github.com/criticalstack/swoll/pkg/syscalls"
 	"github.com/criticalstack/swoll/pkg/types"
@@ -43,7 +42,7 @@ type Hub struct {
 	// the underlying kernel probe context
 	probe *kernel.Probe
 	// the kernel probe filtering api context
-	filter *filter.Filter
+	filter *kernel.Filter
 	// the topology context for this hub which is used for resolving kernel
 	// namespaces to pods/containers
 	topo          *Topology
@@ -68,10 +67,7 @@ func NewHub(bpf *bytes.Reader, observer Observer) (*Hub, error) {
 		return nil, err
 	}
 
-	filter, err := filter.NewFilter(probe.Module())
-	if err != nil {
-		return nil, err
-	}
+	filter := kernel.NewFilter(probe.Module())
 
 	// blacklist our running pid so we don't see events from our self.
 	if err := filter.FilterSelf(); err != nil {
@@ -86,6 +82,10 @@ func NewHub(bpf *bytes.Reader, observer Observer) (*Hub, error) {
 
 	// add a stub/dummy metrics filter so we don't dump everything.
 	if err := filter.AddMetrics(stubMetricsFilterNS); err != nil {
+		return nil, err
+	}
+
+	if err := filter.Enable(); err != nil {
 		return nil, err
 	}
 

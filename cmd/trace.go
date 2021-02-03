@@ -12,7 +12,6 @@ import (
 	"github.com/criticalstack/swoll/pkg/event"
 	"github.com/criticalstack/swoll/pkg/event/reader"
 	"github.com/criticalstack/swoll/pkg/kernel"
-	"github.com/criticalstack/swoll/pkg/kernel/filter"
 	"github.com/criticalstack/swoll/pkg/topology"
 	color "github.com/fatih/color"
 	uuid "github.com/google/uuid"
@@ -198,19 +197,20 @@ var cmdTrace = &cobra.Command{
 				log.Fatal(err)
 			}
 
-			fltr, err := filter.NewFilter(probe.Module())
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			if err := fltr.FilterSelf(); err != nil {
-				log.Fatal(err)
-			}
+			nfilter := kernel.NewFilter(probe.Module())
 
 			for _, scall := range scalls {
-				if err := fltr.AddSyscall(scall, -1); err != nil {
+				if err := nfilter.AddRule(
+					kernel.NewFilterRuleN(
+						kernel.FilterRuleSetModeSyscall(),
+						kernel.FilterRuleSetSyscall(scall),
+						kernel.FilterRuleSetActionAllow())); err != nil {
 					log.Fatal(err)
 				}
+			}
+
+			if err := nfilter.Enable(); err != nil {
+				log.Fatal(err)
 			}
 
 			evreader := reader.NewEventReader(probe)
