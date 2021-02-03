@@ -167,34 +167,12 @@ struct ipc_namespace {
 
 
 /* filtering definitions {{{ */
-#define SWOLL_FILTER_MODE_WHITELIST        (1 << 0)
-#define SWOLL_FILTER_MODE_BLACKLIST        (1 << 1)
-#define SWOLL_FILTER_MODE_GLOBAL_WHITELIST (1 << 2)
-#define SWOLL_FILTER_MODE_GLOBAL_BLACKLIST (1 << 3)
-#define SWOLL_FILTER_TYPE_METRICS          (1 << 12)
-#define SWOLL_FILTER_TYPE_SYSCALL          (1 << 13)
-#define SWOLL_FILTER_TYPE_PID              (1 << 14)
-#define SWOLL_FILTER_TYPE_PIDNS            (1 << 15)
 #define SWOLL_FILTER_ALLOW                 (0)
 #define SWOLL_FILTER_DROP                  (1)
 
 /* filter types are the above (FILTER_MODE, etc) */
 typedef __u16 swoll_filter_type_t;
 
-struct swoll_filter_key {
-    swoll_filter_type_t type; /* FILTER_TYPE_X|BL/WL */
-    __u16               pad;
-    __u32               ns;   /* optional PID namespace */
-    __u32               key;
-};
-
-struct swoll_filter_val {
-    __u64 sample_rate;
-    __u64 sample_count;
-};
-/* }}} end filtering definitions */
-
-/* NEW filtering definitions {{{ */
 #define FILTER_MODE_ENABLED                (1 << 0)
 #define FILTER_MODE_SYSCALL                (1 << 1)
 #define FILTER_MODE_METRICS                (1 << 2)
@@ -283,17 +261,6 @@ SEC("maps/swoll_event_scratch") swoll_event_scratch =
     .value_size  = sizeof(struct swoll_event),
     .max_entries = 1024,
 };
-
-/* Where we store our filtering values */
-struct bpf_map_def
-SEC("maps/swoll_filter") swoll_filter =
-{
-    .type        = BPF_MAP_TYPE_HASH,
-    .key_size    = sizeof(struct swoll_filter_key),
-    .value_size  = sizeof(struct swoll_filter_val),
-    .max_entries = 65535,
-};
-
 
 /* Small table which informs us *WHAT* filter modes are enabled. */
 struct bpf_map_def
@@ -1480,55 +1447,6 @@ swoll__run_nfilter(struct swoll_event_args * ctx, __u16 mode)
 
     return SWOLL_FILTER_DROP;
 } /* swoll__run_nfilter */
-
-#if 0
-static _inline __u8
-swoll__run_syscall_filter(struct swoll_event_args * ctx)
-{
-    __u32                syscall_nr;
-    __u32                tid;
-    __u32                pidns;
-    struct task_struct * task;
-    int                  i;
-
-    task       = (struct task_struct *)bpf_get_current_task();
-    tid        = bpf_get_current_pid_tgid() >> 32;
-    syscall_nr = swoll__syscall_get_nr(ctx);
-    pidns      = swoll__task_pid_namespace(task);
-
-    if (swoll__is_filter_enabled(SWOLL_FILTER_MODE_GLOBAL_WHITELIST | SWOLL_FILTER_TYPE_SYSCALL)) {
-        if (swoll__eval_filter(SWOLL_FILTER_MODE_GLOBAL_WHITELIST | SWOLL_FILTER_TYPE_SYSCALL, 0, syscall_nr)) {
-            return SWOLL_FILTER_DROP;
-        }
-    } else {
-        struct {
-            swoll_filter_type_t t;
-            __u32               ns;
-            __u32               key;
-        } evaluator[6] = {
-            { SWOLL_FILTER_MODE_BLACKLIST | SWOLL_FILTER_TYPE_SYSCALL, pidns, syscall_nr },
-            { SWOLL_FILTER_MODE_WHITELIST | SWOLL_FILTER_TYPE_SYSCALL, pidns, syscall_nr },
-            { SWOLL_FILTER_MODE_BLACKLIST | SWOLL_FILTER_TYPE_PID,     0,     tid        },
-            { SWOLL_FILTER_MODE_WHITELIST | SWOLL_FILTER_TYPE_PID,     0,     tid        },
-            { SWOLL_FILTER_MODE_BLACKLIST | SWOLL_FILTER_TYPE_PIDNS,   0,     pidns      },
-            { SWOLL_FILTER_MODE_WHITELIST | SWOLL_FILTER_TYPE_PIDNS,   0,     pidns      },
-        };
-
-#pragma unroll
-        for (i = 0; i < 6; i++) {
-            if (swoll__eval_filter(evaluator[i].t, evaluator[i].ns, evaluator[i].key)) {
-                /*D_("dropping type=%u, ns=%u, key=%u\n", evaluator[i].t, evaluator[i].ns, evaluator[i].key); */
-                return SWOLL_FILTER_DROP;
-            }
-        }
-    }
-
-
-
-    return SWOLL_FILTER_ALLOW;
-}     /* swoll__run_syscall_filter */
-
-#endif
 
 #define METRICS_STATE_ENTER 0x01
 #define METRICS_STATE_EXIT  0x02

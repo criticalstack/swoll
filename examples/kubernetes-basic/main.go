@@ -8,7 +8,6 @@ import (
 	"github.com/criticalstack/swoll/pkg/event"
 	"github.com/criticalstack/swoll/pkg/kernel"
 	"github.com/criticalstack/swoll/pkg/kernel/assets"
-	"github.com/criticalstack/swoll/pkg/kernel/filter"
 	"github.com/criticalstack/swoll/pkg/topology"
 	"github.com/criticalstack/swoll/pkg/types"
 )
@@ -31,16 +30,13 @@ func main() {
 		log.Fatalf("Unable to initialize probe: %v", err)
 	}
 
-	f, err := filter.NewFilter(probe.Module())
-	if err != nil {
-		log.Fatalf("Unable to create filter: %v", err)
-	}
+	filter := kernel.NewFilter(probe.Module())
 
-	f.FilterSelf()
-	f.AddSyscall("execve", -1)
-	f.AddSyscall("openat", -1)
-	f.AddSyscall("accept4", -1)
-	f.AddSyscall("connect", -1)
+	filter.FilterSelf()
+	filter.AddSyscall("execve", -1)
+	filter.AddSyscall("openat", -1)
+	filter.AddSyscall("accept4", -1)
+	filter.AddSyscall("connect", -1)
 
 	observer, err := topology.NewKubernetes(topology.WithKubernetesCRI("/run/containerd/containerd.sock"))
 	if err != nil {
@@ -49,7 +45,10 @@ func main() {
 
 	ctx := context.Background()
 	topo := topology.NewTopology(observer)
-	event := event.NewTraceEvent().WithTopology(topo)
+	event := event.NewTraceEvent().WithContainerLookup(
+		func(ns int) (*types.Container, error) {
+			return topo.LookupContainer(ctx, ns)
+		})
 
 	go topo.Run(ctx, func(tp topology.EventType, c *types.Container) {
 		fmt.Printf("eventType=%v, container=%v\n", tp, c.FQDN())

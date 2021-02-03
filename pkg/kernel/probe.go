@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/criticalstack/swoll/pkg/kernel/filter"
 	"github.com/iovisor/gobpf/elf"
 	"github.com/pkg/errors"
 )
@@ -115,12 +114,9 @@ func WithOffsetDetection() ProbeInitOption {
 
 func WithDefaultFilter() ProbeInitOption {
 	return func(p *Probe) error {
-		f, err := filter.NewFilter(p.Module())
-		if err != nil {
-			return errors.Wrapf(err, "unable to create new filter context")
-		}
+		f := NewFilter(p.Module())
 
-		if err := f.ApplyDefaults(); err != nil {
+		if err := f.FilterSelf(); err != nil {
 			return errors.Wrapf(err, "unable to create filter for this proccess")
 		}
 

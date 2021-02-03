@@ -190,6 +190,10 @@ func FilterRuleSetSampleRate(rate int) FilterRuleOption {
 
 func FilterRuleSetPidNamespace(ns int) FilterRuleOption {
 	return func(rule *FilterRule) error {
+		if ns == -1 {
+			return nil
+		}
+
 		rule.key.pidns = uint32(ns)
 		rule.key.flags = rule.key.flags | ftypePidNS
 		return nil
