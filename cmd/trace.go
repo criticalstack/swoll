@@ -7,15 +7,16 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/criticalstack/swoll/api/v1alpha1"
 	"github.com/criticalstack/swoll/pkg/event"
 	"github.com/criticalstack/swoll/pkg/event/reader"
 	"github.com/criticalstack/swoll/pkg/kernel"
-	"github.com/criticalstack/swoll/pkg/kernel/filter"
 	"github.com/criticalstack/swoll/pkg/topology"
 	color "github.com/fatih/color"
 	uuid "github.com/google/uuid"
+	"github.com/iovisor/gobpf/elf"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -143,6 +144,8 @@ var cmdTrace = &cobra.Command{
 			}
 		}
 
+		var mod *elf.Module
+
 		if !noContainers {
 			// process with k8s support using a Kubernetes Observer for the
 			// Topology API:
@@ -166,6 +169,8 @@ var cmdTrace = &cobra.Command{
 			if err := SetOffsetsFromArgs(hub.Probe(), cmd, args); err != nil {
 				log.Fatal(err)
 			}
+
+			mod = hub.Probe().Module()
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -194,23 +199,26 @@ var cmdTrace = &cobra.Command{
 				log.Fatal(err)
 			}
 
+			mod = probe.Module()
+
 			if err := SetOffsetsFromArgs(probe, cmd, args); err != nil {
 				log.Fatal(err)
 			}
 
-			fltr, err := filter.NewFilter(probe.Module())
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			if err := fltr.FilterSelf(); err != nil {
-				log.Fatal(err)
-			}
+			nfilter := kernel.NewFilter(probe.Module())
 
 			for _, scall := range scalls {
-				if err := fltr.AddSyscall(scall, -1); err != nil {
+				if err := nfilter.AddRule(
+					kernel.NewFilterRuleN(
+						kernel.FilterRuleSetModeSyscall(),
+						kernel.FilterRuleSetSyscall(scall),
+						kernel.FilterRuleSetActionAllow())); err != nil {
 					log.Fatal(err)
 				}
+			}
+
+			if err := nfilter.Enable(); err != nil {
+				log.Fatal(err)
 			}
 
 			evreader := reader.NewEventReader(probe)
@@ -236,7 +244,24 @@ var cmdTrace = &cobra.Command{
 
 		}
 
-		select {}
+		if noContainers && log.IsLevelEnabled(log.DebugLevel) {
+			tick := time.NewTicker(10 * time.Second)
+			filter := kernel.NewFilter(mod)
+
+			for {
+				rules, err := filter.GetRunning()
+				if err != nil {
+					log.Debug(err)
+				}
+				for _, rule := range rules {
+					log.Debug(rule)
+				}
+
+				<-tick.C
+			}
+		} else {
+			select {}
+		}
 	},
 }
 

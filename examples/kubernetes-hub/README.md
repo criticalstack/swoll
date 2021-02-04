@@ -15,7 +15,7 @@ import (
 
 func main() {
     probe, _ := kernel.NewProbe(assets.LoadBPFReader(), nil)
-    filter, _ := filter.NewFilter(probe.Module())
+    filter, _ := kernel.NewFilter(probe.Module())
 
     filter.AddSyscall("open", 31337)
 }

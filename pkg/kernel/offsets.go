@@ -1,7 +1,3 @@
-// a small wrapper-api around setting and unsetting offset configurations in the
-// bpf probe. Offsets are stored in a per_cpu bpf map in the following format:
-//   key : uint8  (nsproxy / thread_pid)
-//   val : uint32 (offset into task_struct)
 package kernel
 
 import (
@@ -21,17 +17,19 @@ const (
 	OffsetPidNSCommon OffsetType = 2
 )
 
+// The Offsetter class holds all the pertinent information to store offsets in
+// the running kernel's offset lookup table.
+type Offsetter struct {
+	module    *elf.Module
+	configMap *elf.Map
+	offsets   map[OffsetType]*Offset
+}
+
 // Offset is a structure that represents a single offset configuration entry in
 // the ebpf.
 type Offset struct {
 	Type  OffsetType
 	Value OffsetValue
-}
-
-type Offsetter struct {
-	module    *elf.Module
-	configMap *elf.Map
-	offsets   map[OffsetType]*Offset
 }
 
 // NewOffsetter creates and initializes a new Offsetter context from the ebpf
