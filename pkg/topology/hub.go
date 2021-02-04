@@ -299,6 +299,17 @@ func (h *Hub) Run(ctx context.Context) error {
 		select {
 		case <-stattick.C:
 			log.Debugf("allocated-metric-nodes: %v", len(mhandler.QueryAll()))
+
+			if log.IsLevelEnabled(log.DebugLevel) {
+				rules, err := h.filter.GetRunning()
+				if err != nil {
+					log.Debugf("failed to get running filters: %v", err)
+				} else {
+					for _, rule := range rules {
+						log.Debug(rule)
+					}
+				}
+			}
 		case <-ctx.Done():
 			return ctx.Err()
 		}

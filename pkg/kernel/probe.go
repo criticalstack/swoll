@@ -49,9 +49,7 @@ func NewProbeConfig() *Config {
 	}
 }
 
-// NewProbe does all initializations of our BPF structures. This does
-// NOT do any operation in which requires administrative rights. That
-// Functionality is for the initialization.
+// NewProbe creates a new instance of the BPF controller
 func NewProbe(bpf *bytes.Reader, cfg *Config) (*Probe, error) {
 	if bpf == nil {
 		return nil, errors.New("bpf is nil")
@@ -71,14 +69,16 @@ func NewProbe(bpf *bytes.Reader, cfg *Config) (*Probe, error) {
 
 }
 
-// DataCallback is the function called for every trace-event record,
-// or if the lost channel had been signaled.
+// DataCallback is used to inform the caller that there is data ready to be
+// decoded from the kernel.
 type DataCallback func(msg []byte, lost uint64) error
 
+// ProbeInitOption is a callback to be executed during the initialization phase
+// of the BPF setup.
 type ProbeInitOption func(*Probe) error
 
-// InitProbe loads all the underlying bpf maps, allocates the perfevent buffer,
-// sets the tracepoints, all of which are operations which require CAP_ADMIN
+// InitProbe will initialize the BPF and all of the communication channels
+// for interaction
 func (p *Probe) InitProbe(opts ...ProbeInitOption) error {
 	if p == nil || p.module == nil {
 		return fmt.Errorf("nil probe")
@@ -106,12 +106,16 @@ func (p *Probe) InitProbe(opts ...ProbeInitOption) error {
 	return nil
 }
 
+// WithOffsetDetection is a probe initialization step which attempts to find and
+// set the offset configuration from the running kernel into the running BPF
 func WithOffsetDetection() ProbeInitOption {
 	return func(p *Probe) error {
 		return p.DetectAndSetOffsets()
 	}
 }
 
+// WithDefaultFilter is a prober initialization step which writes the default
+// filters to the running BPF
 func WithDefaultFilter() ProbeInitOption {
 	return func(p *Probe) error {
 		f := NewFilter(p.Module())
@@ -124,9 +128,8 @@ func WithDefaultFilter() ProbeInitOption {
 	}
 }
 
-// InitTracePoints will set our tracepoints as on.
+// InitTracepoints enables the BPF tracepoints on all of the necessary BPF hooks
 func (p *Probe) InitTracepoints() error {
-	// initialize our tracepoints that we have setup to be configured.
 	if p.tpInitialized {
 		return nil
 	}
@@ -142,7 +145,7 @@ func (p *Probe) InitTracepoints() error {
 	return nil
 }
 
-// Close will de-initialize and close all the underlying bpf modules.
+// Close cleans up the BPF handlers for a clean exit
 func (p *Probe) Close() error {
 	if p != nil {
 		p.initialized = false
@@ -154,8 +157,8 @@ func (p *Probe) Close() error {
 	return nil
 }
 
-// Run will read raw kernel trace events, and for each incoming
-// trace, will call the user-provided callback `DataCallback`
+// Run will start polling the BPF for events and for each event, executes the
+// DataCallback
 func (p *Probe) Run(ctx context.Context, cb DataCallback) error {
 	if p == nil || p.module == nil {
 		return fmt.Errorf("nil probe")
