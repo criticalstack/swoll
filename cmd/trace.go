@@ -244,7 +244,7 @@ var cmdTrace = &cobra.Command{
 
 		}
 
-		if log.IsLevelEnabled(log.DebugLevel) {
+		if noContainers && log.IsLevelEnabled(log.DebugLevel) {
 			tick := time.NewTicker(10 * time.Second)
 			filter := kernel.NewFilter(mod)
 
