@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"syscall"
+	"time"
 
 	"github.com/criticalstack/swoll/pkg/event/call"
 	"github.com/criticalstack/swoll/pkg/syscalls"
@@ -203,20 +204,19 @@ func (ev *TraceEvent) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-/*
-// WithTopology sets the internal topology context to `topo` for "resolving"
-// kernel-namespaces to containers.
-func (ev *TraceEvent) WithTopology(topo *topology.Topology) *TraceEvent {
-	ev.topo = topo
-	return ev
-}
-*/
-
 // WithContainerLookup sets the callback to execute to resolve kernel namespaces
 // to the container it is associated with.
 func (ev *TraceEvent) WithContainerLookup(cb ContainerLookupCb) *TraceEvent {
 	ev.lookupContainer = cb
 	return ev
+}
+
+func (ev *TraceEvent) Latency() float64 {
+	return float64(ev.Finish) - float64(ev.Start)
+}
+
+func (ev *TraceEvent) LatencyMS() float64 {
+	return ev.Latency() / float64(time.Millisecond)
 }
 
 // Ingest reads an abstract input and outputs it as a fully-parsed TraceEvent.
