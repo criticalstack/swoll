@@ -8,6 +8,7 @@ define BASEFLAGS
 		  -include $(KERNELDIR)/include/linux/kconfig.h  \
 		  -include asm_goto_workaround.h                 \
 		  -D__KERNEL__                                   \
+		  -D__BPF_TRACING__                              \
 		  -Wno-gnu-variable-sized-type-not-at-end        \
 		  -Wno-address-of-packed-member                  \
 		  -fno-jump-tables                               \
