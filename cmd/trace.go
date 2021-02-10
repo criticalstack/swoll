@@ -110,11 +110,15 @@ var cmdTrace = &cobra.Command{
 				cyan := color.New(color.FgCyan).SprintFunc()
 				bgblack := color.New(color.BgBlack).SprintFunc()
 				white := color.New(color.FgWhite).SprintFunc()
+				yellow := color.New(color.FgYellow).SprintFunc()
 
 				fn := ev.Argv
 				args := fn.Arguments()
 
-				var errno string
+				var (
+					errno   string
+					latency string
+				)
 
 				if ev.Error == 0 {
 					errno = green("OK")
@@ -122,10 +126,20 @@ var cmdTrace = &cobra.Command{
 					errno = red(ev.Error.String())
 				}
 
-				if !noContainers {
-					fmt.Printf("%35s: [%9s] (%11s) %s(", green(ev.Container.FQDN()), ev.Comm, errno, cyan(fn.CallName()))
+				lat := ev.LatencyMS()
+
+				if lat >= 1.0 {
+					latency = red(fmt.Sprintf("%6.3f", lat))
+				} else if lat >= 0.01 {
+					latency = yellow(fmt.Sprintf("%6.3f", lat))
 				} else {
-					fmt.Printf("[%15s/%-8v] (%11s) %s(", ev.Comm, ev.Pid, errno, cyan(fn.CallName()))
+					latency = green(fmt.Sprintf("%6.3f", lat))
+				}
+
+				if !noContainers {
+					fmt.Printf("(%vms) %35s: [%9s] (%11s) %s(", latency, green(ev.Container.FQDN()), ev.Comm, errno, cyan(fn.CallName()))
+				} else {
+					fmt.Printf("(%vms) [%15s/%-8v] (%11s) %s(", latency, ev.Comm, ev.Pid, errno, cyan(fn.CallName()))
 				}
 
 				for x, arg := range args {
