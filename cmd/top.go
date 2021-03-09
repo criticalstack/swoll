@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 	"sort"
 	"sync"
 	"time"
@@ -330,6 +331,15 @@ var cmdTop = &cobra.Command{
 			log.Fatal(err)
 		}
 
+		kconfig, err := cmd.Flags().GetString("kubeconfig")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if kconfig == "" {
+			kconfig = os.Getenv("HOME") + "/.kube/config"
+		}
+
 		labelSelector, err := cmd.Flags().GetString("label-selector")
 		if err != nil {
 			log.Fatal(err)
@@ -350,7 +360,7 @@ var cmdTop = &cobra.Command{
 		}
 
 		observer, err := topology.NewKubernetes(
-			topology.WithKubernetesConfig("/home/lz/.kube/config"),
+			topology.WithKubernetesConfig(kconfig),
 			topology.WithKubernetesCRI(crisock),
 			topology.WithKubernetesNamespace(namespace),
 			topology.WithKubernetesProcRoot(altroot),
