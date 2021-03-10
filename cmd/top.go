@@ -236,8 +236,10 @@ func (w *aggWidget) update(metrics *aggMetrics) {
 			} else {
 				lines[n] = make([]string, maxIndex-2)
 			}
+
 			lines[n][scIdx] = unit.key.sc
 			lines[n][esIdx] = unit.key.err
+
 			if !aggregateHosts {
 				lines[n][nsIdx] = unit.key.ns
 				lines[n][pdIdx] = unit.key.pod
@@ -251,14 +253,14 @@ func (w *aggWidget) update(metrics *aggMetrics) {
 			}
 
 			if unit.key.err != "OK" {
-				w.RowStyles[n] = ui.NewStyle(ui.ColorYellow)
+				w.RowStyles[n] = ui.NewStyle(169)
 			}
 		}
 	}
 
 	w.Rows = lines
 	w.FillRow = true
-	w.TextStyle = ui.NewStyle(ui.ColorWhite)
+	w.RowStyles[0] = ui.NewStyle(ui.ColorBlack, ui.ColorWhite)
 	w.RowSeparator = false
 }
 
@@ -313,6 +315,64 @@ func (m aggMetrics) lookupOrCreate(container *types.Container, sc *syscalls.Sysc
 	m[key] = nval
 	return nval
 
+}
+
+type graphWidget struct {
+	*widgets.SparklineGroup
+	totals *widgets.Sparkline
+	errors *widgets.Sparkline
+}
+
+func newGraphWidget(metrics map[string]*fixedRateArray) *graphWidget {
+	ret := &graphWidget{
+		totals: widgets.NewSparkline(),
+		errors: widgets.NewSparkline(),
+	}
+
+	ret.SparklineGroup = widgets.NewSparklineGroup(ret.totals, ret.errors)
+	ret.Title = "Totals/Errors"
+	ret.totals.Title = "Non-Errors"
+	ret.errors.Title = "Errors"
+	ret.totals.LineColor = 154
+	ret.errors.LineColor = 169
+
+	ret.update(metrics)
+
+	go func() {
+		tick := time.NewTicker(time.Second)
+		for {
+			<-tick.C
+			ret.update(metrics)
+		}
+	}()
+
+	return ret
+}
+
+func (g *graphWidget) update(metrics map[string]*fixedRateArray) {
+	if metrics == nil {
+		return
+	}
+
+	mu.RLock()
+	defer mu.RUnlock()
+
+	//totals := metrics["syscall.totals"]
+	//errors := metrics["syscall.errors"]
+
+	/*
+		reverse := func(n []float64) []float64 {
+			for i := 0; i < len(n)/2; i++ {
+				j := len(n) - i - 1
+				n[i], n[j] = n[j], n[i]
+			}
+
+			return n
+		}
+	*/
+
+	//g.totals.Data = append(g.totals.Data, totals.values[len(totals.values)-1])
+	//g.errors.Data = append(g.errors.Data, errors.values[len(errors.values)-1])
 }
 
 var cmdTop = &cobra.Command{
@@ -395,17 +455,21 @@ var cmdTop = &cobra.Command{
 			defer ui.Close()
 		}
 
-		swin := newAggregateWidget(&aggr)
-		grid := ui.NewGrid()
-
 		averages := make(map[string]*fixedRateArray)
 
-		averages["syscall.errors"] = newFixedRateArray(30)
-		averages["syscall.totals"] = newFixedRateArray(30)
+		swin := newAggregateWidget(&aggr)
+		graf := newGraphWidget(averages)
+		grid := ui.NewGrid()
+
+		averages["syscall.errors"] = newFixedRateArray(50)
+		averages["syscall.totals"] = newFixedRateArray(50)
 
 		if !noui {
 			grid.Set(
-				ui.NewRow(1,
+				ui.NewRow(0.20,
+					ui.NewCol(1, graf),
+				),
+				ui.NewRow(0.80,
 					ui.NewCol(1, swin),
 				),
 			)
@@ -417,6 +481,8 @@ var cmdTop = &cobra.Command{
 		for {
 			select {
 			case <-tick.C:
+				totalDiff := float64(0)
+				errorDiff := float64(0)
 				for _, unit := range ktrics.QueryAll() {
 					cinfo, err := topo.LookupContainer(ctx, unit.PidNamespace())
 					if err != nil {
@@ -429,17 +495,31 @@ var cmdTop = &cobra.Command{
 
 					val := aggr.lookupOrCreate(cinfo, scall, errno)
 					diff := count - val.count.Count()
+					if errno != 0 {
+						errorDiff += diff
+					} else {
+						totalDiff += diff
+					}
 
 					val.count.Inc(diff)
 					val.rate.Mark(int64(diff))
 
 				}
 
-				totals := aggr.mergeStatsByKey(false)
-				errors := aggr.mergeStatsByKey(true)
+				width := graf.Inner.Dx()
 
-				averages["syscall.totals"].push(totals[metricKey{}].rate.RateMean())
-				averages["syscall.errors"].push(errors[metricKey{}].rate.RateMean())
+				if len(graf.Sparklines[0].Data) > width {
+					graf.Sparklines[0].Data = graf.Sparklines[0].Data[1:]
+				}
+
+				if len(graf.Sparklines[1].Data) > width {
+					graf.Sparklines[1].Data = graf.Sparklines[1].Data[1:]
+				}
+
+				graf.Sparklines[0].Data = append(graf.Sparklines[0].Data, totalDiff)
+				graf.Sparklines[0].Title = fmt.Sprintf(" Total %5.1f", totalDiff)
+				graf.Sparklines[1].Data = append(graf.Sparklines[1].Data, errorDiff)
+				graf.Sparklines[1].Title = fmt.Sprintf(" Error %5.1f", errorDiff)
 
 				if !noui {
 					ui.Render(grid)
