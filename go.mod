@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	github.com/fatih/color v1.9.0
+	github.com/gizak/termui/v3 v3.1.0
 	github.com/go-bindata/go-bindata v3.1.2+incompatible
 	github.com/go-echarts/go-echarts v1.0.0
 	github.com/go-logr/logr v0.1.0
@@ -18,6 +19,7 @@ require (
 	github.com/prometheus/alertmanager v0.21.0
 	github.com/prometheus/client_golang v1.6.0
 	github.com/prometheus/common v0.10.0
+	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 	github.com/sirupsen/logrus v1.7.0
 	github.com/spf13/cobra v1.1.1
 	github.com/syndtr/gocapability v0.0.0-20180916011248-d98352740cb2

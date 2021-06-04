@@ -35,6 +35,9 @@ Metrics are exposed via the URI `/metrics` in `Prometheus` format, along with de
 ![Charts](media/charts-ss.png)
 _The above Sankey diagram displays the distribution of system calls in an attractive™ manner._
 
+**Example swoll top output**
+![Swoll-Top](media/swoll-top.png)
+
 **Prometheus query examples** 
 ```sh
 $ promtool query instant https://prometheus.local '
