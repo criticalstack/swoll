@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 
+	"github.com/containerd/containerd/namespaces"
 	"github.com/criticalstack/swoll/pkg/types"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -210,6 +211,7 @@ func (k *Kubernetes) Connect(ctx context.Context) error {
 // container using CRI from some of the meta-data found within the info section
 // of the response.
 func (k *Kubernetes) getContainerPid(ctx context.Context, id string) (int, error) {
+	ctx = namespaces.WithNamespace(ctx, "k8s.io")
 	rpc := pb.NewRuntimeServiceClient(k.criClient)
 	request := &pb.ContainerStatusRequest{ContainerId: id, Verbose: true}
 	response, err := rpc.ContainerStatus(ctx, request)
@@ -240,6 +242,8 @@ type matchPod struct {
 // criContainers returns all running containers found in the CRI and attempts to
 // resolve the pod, kube-namespace, and kernel-namespace.
 func (k *Kubernetes) criContainers(ctx context.Context, match ...*matchPod) ([]*types.Container, error) {
+	ctx = namespaces.WithNamespace(ctx, "k8s.io")
+
 	if k.criClient == nil {
 		if err := k.connectCRI(ctx); err != nil {
 			return nil, err
