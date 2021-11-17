@@ -1,4 +1,4 @@
-# Due to changes in the priorities, this project is currently not being supported. The project is archived as of 11/16/21 and will be available in a read-only state. Please note, since archival, the project is not maintained or reviewed. #
+# Due to changes in the priorities, this project is currently not being supported. The project is archived as of 11/17/21 and will be available in a read-only state. Please note, since archival, the project is not maintained or reviewed. #
 
 ![Build Status](https://github.com/criticalstack/swoll/workflows/Lint%20and%20test%20Swoll/badge.svg)
 
